@@ -2,10 +2,10 @@
 <div class="container">
   <div class="page-header">
     <h1>{% if klient %}Upravit klienta{% else %}Nový klient{% endif %}</h1>
-    <a href="{{ url_for('klienti.klienti_list') }}" class="btn btn-secondary">&larr; Zpět</a>
+    <a href="{{ url_for('main.klienti_list') }}" class="btn btn-secondary">&larr; Zpět</a>
   </div>
   {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
-  <form method="POST" enctype="multipart/form-data" action="{{ url_for('klienti.klient_upravit', klient_id=klient.id) if klient else url_for('klienti.klient_novy') }}">
+  <form method="POST" enctype="multipart/form-data" action="{{ url_for('klienti.klient_upravit', klient_id=klient.id) if klient else url_for('main.klient_novy') }}">
     <div class="card">
       <div class="form-grid" style="margin-bottom:12px;">
         <div class="form-group" style="margin:0;">
@@ -83,7 +83,7 @@
       <button type="submit" class="btn btn-navy" style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:900;letter-spacing:0.04em;text-transform:uppercase;">
         {% if klient %}Uložit změny{% else %}Vytvořit klienta{% endif %}
       </button>
-      <a href="{{ url_for('klienti.klienti_list') }}" class="btn btn-secondary">Zrušit</a>
+      <a href="{{ url_for('main.klienti_list') }}" class="btn btn-secondary">Zrušit</a>
     </div>
   </form>
 </div>

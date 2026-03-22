@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data-kontakt="{{ k.kontakt }}">{{ k.nazev }}</option>
           {% endfor %}
         </select>
-        <a href="{{ url_for('klienti.klient_novy') }}" target="_blank"
+        <a href="{{ url_for('main.klient_novy') }}" target="_blank"
            style="white-space:nowrap;font-size:11px;font-weight:700;color:#00AFF0;border:1.5px solid #00AFF0;border-radius:5px;padding:8px 14px;text-decoration:none;letter-spacing:0.06em;text-transform:uppercase;font-family:'Montserrat',sans-serif;flex-shrink:0;"
            title="Otevře se v novém okně">
           + Nový klient
