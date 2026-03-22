@@ -51,7 +51,7 @@
     </div>
     <details style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
       <summary style="font-size:11px;font-weight:700;color:#4A6080;text-transform:uppercase;letter-spacing:0.08em;cursor:pointer;">Upravit projekt</summary>
-      <form method="POST" action="{{ url_for('projekt_upravit', projekt_id=p.id) }}" style="margin-top:12px;">
+      <form method="POST" action="{{ url_for('klienti.projekt_upravit', projekt_id=p.id) }}" style="margin-top:12px;">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
           <div><label style="font-size:10px;font-weight:700;color:#4A6080;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:3px;">Název</label><input type="text" name="nazev" value="{{ p.nazev }}" required style="padding:8px 10px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;width:100%;font-family:'Montserrat',sans-serif;"></div>
           <div><label style="font-size:10px;font-weight:700;color:#4A6080;text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:3px;">Konzultant</label><select name="user_id" style="padding:8px 10px;border:1.5px solid var(--border);border-radius:5px;font-size:13px;width:100%;font-family:'Montserrat',sans-serif;"><option value="">— nevybráno —</option>{% for u in konzultanti %}<option value="{{ u.id }}" {% if p.user_id==u.id %}selected{% endif %}>{{ u.name }}</option>{% endfor %}</select></div>

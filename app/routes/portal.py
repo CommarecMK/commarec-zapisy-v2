@@ -17,10 +17,10 @@ bp = Blueprint("portal", __name__)
 def klient_portal():
     """Portál pro klienta — vidí jen své zápisy, nabídky, Freelo úkoly."""
     if "user_id" not in session:
-        return redirect(url_for("login"))
+        return redirect(url_for("main.login"))
     u = User.query.get(session["user_id"])
     if not u or u.role != "klient":
-        return redirect(url_for("prehled"))
+        return redirect(url_for("main.prehled"))
     
     if not u.klient_id:
         return render_template("portal.html", klient=None, zapisy=[], nabidky=[], ukoly=[])

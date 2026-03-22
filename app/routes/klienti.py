@@ -73,7 +73,7 @@ def nabidka_nova():
             db.session.add(p)
 
         db.session.commit()
-        return redirect(url_for("nabidka_detail", nabidka_id=n.id))
+        return redirect(url_for("nabidky.nabidka_detail", nabidka_id=n.id))
 
     k = Klient.query.get(klient_id) if klient_id else None
     projekty = Projekt.query.filter_by(klient_id=klient_id).all() if klient_id else []
@@ -100,7 +100,7 @@ def nabidka_polozka_pridat(nabidka_id):
     )
     db.session.add(p)
     db.session.commit()
-    return redirect(url_for("nabidka_detail", nabidka_id=n.id))
+    return redirect(url_for("nabidky.nabidka_detail", nabidka_id=n.id))
 
 
 @bp.route("/nabidka/<int:nabidka_id>/polozka/<int:pol_id>/smazat", methods=["POST"])
@@ -164,7 +164,7 @@ def nabidka_stav(nabidka_id):
     n = Nabidka.query.get_or_404(nabidka_id)
     n.stav = request.form.get("stav", n.stav)
     db.session.commit()
-    return redirect(url_for("nabidka_detail", nabidka_id=n.id))
+    return redirect(url_for("nabidky.nabidka_detail", nabidka_id=n.id))
 
 @bp.route("/klient/<int:klient_id>")
 @login_required
@@ -250,7 +250,7 @@ def klient_upravit(klient_id):
         if logo_url:
             k.logo_url = logo_url
         db.session.commit()
-        return redirect(url_for("klient_detail", klient_id=k.id))
+        return redirect(url_for("klienti.klient_detail", klient_id=k.id))
     return render_template("klient_form.html", klient=k)
 
 @bp.route("/api/klient/<int:klient_id>/profil", methods=["POST"])
@@ -319,7 +319,7 @@ def projekt_novy():
     klient_id = data.get("klient_id")
     nazev     = data.get("nazev","").strip()
     if not nazev or not klient_id:
-        return redirect(url_for("klienti_list"))
+        return redirect(url_for("klienti.klienti_list"))
     datum_od = None
     datum_do = None
     try:
@@ -337,7 +337,7 @@ def projekt_novy():
     )
     db.session.add(p)
     db.session.commit()
-    return redirect(url_for("klient_detail", klient_id=klient_id))
+    return redirect(url_for("klienti.klient_detail", klient_id=klient_id))
 
 @bp.route("/projekt/<int:projekt_id>/upravit", methods=["POST"])
 @login_required
@@ -354,7 +354,7 @@ def projekt_upravit(projekt_id):
     except ValueError:
         pass
     db.session.commit()
-    return redirect(url_for("klient_detail", klient_id=p.klient_id))
+    return redirect(url_for("klienti.klient_detail", klient_id=p.klient_id))
 
 @bp.route("/projekt/<int:projekt_id>")
 @login_required

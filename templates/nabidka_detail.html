@@ -140,7 +140,7 @@
         </button>
         <div class="stav-menu" id="stavMenu">
           {% for stav, label, color in [('draft','Koncept','#4A6080'),('odeslana','Odeslaná','#0085B8'),('prijata','Přijatá','#0A7A5A'),('zamitnuta','Zamítnutá','#C0392B')] %}
-          <form method="post" action="{{ url_for('nabidka_stav', nabidka_id=n.id) }}" style="margin:0;">
+          <form method="post" action="{{ url_for('nabidky.nabidka_stav', nabidka_id=n.id) }}" style="margin:0;">
             <input type="hidden" name="stav" value="{{ stav }}">
             <button type="submit" class="stav-opt" style="color:{{ color }};">{{ label }}</button>
           </form>

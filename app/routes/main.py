@@ -63,7 +63,7 @@ def home():
             "klient": z.klient.nazev if z.klient else "",
             "projekt": z.projekt.nazev if z.projekt else "",
             "datum": z.created_at,
-            "url": url_for("detail_zapisu", zapis_id=z.id),
+            "url": url_for("zapisy.detail_zapisu", zapis_id=z.id),
         })
     for n in Nabidka.query.order_by(Nabidka.created_at.desc()).limit(5).all():
         aktivita.append({
@@ -73,7 +73,7 @@ def home():
             "klient": n.klient.nazev if n.klient else "",
             "projekt": n.projekt.nazev if n.projekt else "",
             "datum": n.created_at,
-            "url": url_for("nabidka_detail", nabidka_id=n.id),
+            "url": url_for("nabidky.nabidka_detail", nabidka_id=n.id),
         })
     aktivita.sort(key=lambda x: x["datum"], reverse=True)
     aktivita = aktivita[:15]
@@ -92,8 +92,8 @@ def home():
 @bp.route("/")
 def index():
     if "user_id" in session:
-        return redirect(url_for("prehled"))
-    return redirect(url_for("login"))
+        return redirect(url_for("main.prehled"))
+    return redirect(url_for("main.login"))
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
@@ -107,14 +107,14 @@ def login():
             session["user_name"] = user.name
             session["is_admin"]  = user.is_admin
             session["user_role"] = user.role
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("main.dashboard"))
         error = "Nespravny e-mail nebo heslo."
     return render_template("login.html", error=error)
 
 @bp.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return redirect(url_for("main.login"))
 
 # ─────────────────────────────────────────────
 # ROUTES — DASHBOARD
@@ -250,7 +250,7 @@ def klient_novy():
         if logo_url:
             k.logo_url = logo_url
         db.session.commit()
-        return redirect(url_for("klient_detail", klient_id=k.id))
+        return redirect(url_for("klienti.klient_detail", klient_id=k.id))
     return render_template("klient_form.html", klient=None)
 
 
@@ -302,7 +302,7 @@ def projekt_nastavit_freelo(projekt_id):
     p.freelo_project_id = request.form.get("freelo_project_id", type=int) or None
     p.freelo_tasklist_id = request.form.get("freelo_tasklist_id", type=int) or None
     db.session.commit()
-    return redirect(request.referrer or url_for("projekt_detail", projekt_id=p.id))
+    return redirect(request.referrer or url_for("klienti.projekt_detail", projekt_id=p.id))
 
 
 # ─────────────────────────────────────────────

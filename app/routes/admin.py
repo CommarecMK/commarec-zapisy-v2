@@ -38,10 +38,10 @@ def pridat_uzivatele():
     klient_id = request.form.get("klient_id", type=int) or None
     is_admin  = role in ("superadmin", "admin")
     if not email or not name:
-        return redirect(url_for("admin"))
+        return redirect(url_for("admin_bp.admin"))
     if User.query.filter_by(email=email).first():
         session["admin_flash"] = f"Email {email} už existuje."
-        return redirect(url_for("admin"))
+        return redirect(url_for("admin_bp.admin"))
 
     import random
     words = ["Sklad", "Logistika", "Picking", "Trasa", "Expres", "Projekt", "Audit"]
@@ -53,7 +53,7 @@ def pridat_uzivatele():
     db.session.add(u)
     db.session.commit()
     session["admin_flash"] = f"Uživatel {name} vytvořen. Heslo: {password}"
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin_bp.admin"))
 
 @bp.route("/admin/upravit-uzivatele/<int:user_id>", methods=["POST"])
 @admin_required
@@ -68,7 +68,7 @@ def upravit_uzivatele(user_id):
     if request.form.get("password"):
         user.password_hash = generate_password_hash(request.form["password"])
     db.session.commit()
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin_bp.admin"))
 
 @bp.route("/admin/templates", methods=["GET"])
 @admin_required
@@ -86,7 +86,7 @@ def admin_templates():
 @admin_required
 def admin_template_save(template_key):
     if template_key not in TEMPLATE_PROMPTS:
-        return redirect(url_for("admin"))
+        return redirect(url_for("admin_bp.admin"))
     prompt = request.form.get("system_prompt", "").strip()
     cfg = TemplateConfig.query.filter_by(template_key=template_key).first()
     if not cfg:
@@ -98,7 +98,7 @@ def admin_template_save(template_key):
     cfg.system_prompt = prompt
     db.session.commit()
     session["admin_flash"] = f"Šablona '{TEMPLATE_NAMES.get(template_key, template_key)}' uložena."
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin_bp.admin"))
 
 
 @bp.route("/admin/templates/<template_key>/reset", methods=["POST"])
@@ -115,11 +115,11 @@ def admin_template_reset(template_key):
 @admin_required
 def smazat_uzivatele(user_id):
     if user_id == session["user_id"]:
-        return redirect(url_for("admin"))  # nelze smazat sám sebe
+        return redirect(url_for("admin_bp.admin"))  # nelze smazat sám sebe
     user = User.query.get_or_404(user_id)
     # Nelze smazat superadmina
     if user.role == "superadmin":
-        return redirect(url_for("admin"))
+        return redirect(url_for("admin_bp.admin"))
     # Přeřaď zápisy na admina před smazáním
     admin_user = User.query.filter_by(role="superadmin").first()
     if admin_user:
@@ -128,7 +128,7 @@ def smazat_uzivatele(user_id):
     db.session.delete(user)
     db.session.commit()
     session["admin_flash"] = f"Uživatel {user.name} byl smazán."
-    return redirect(url_for("admin"))
+    return redirect(url_for("admin_bp.admin"))
 
 # ─────────────────────────────────────────────
 # DB INIT + AUTO-MIGRATE
