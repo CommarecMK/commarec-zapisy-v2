@@ -368,3 +368,66 @@ PRAVIDLA:
 - Nedomýšlej informace které nezazněly — piš jen to co je v přepisu
 - Pokud byl zadán interní prompt, zapracuj ho do obsahu sekcí (ne jako samostatnou sekci)
 """
+
+class Nabidka(db.Model):
+    __tablename__ = "nabidka"
+    id          = db.Column(db.Integer, primary_key=True)
+    cislo       = db.Column(db.String(50), unique=True, nullable=False)  # napr. NAB-2026-001
+    klient_id   = db.Column(db.Integer, db.ForeignKey("klient.id"), nullable=False)
+    projekt_id  = db.Column(db.Integer, db.ForeignKey("projekt.id"), nullable=True)
+    user_id     = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    nazev       = db.Column(db.String(300), nullable=False)
+    poznamka    = db.Column(db.Text, default="")
+    platnost_do = db.Column(db.Date, nullable=True)
+    stav        = db.Column(db.String(30), default="draft")  # draft, odeslana, prijata, zamitnuta
+    mena        = db.Column(db.String(10), default="CZK")
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at  = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    klient      = db.relationship("Klient", backref="nabidky")
+    projekt     = db.relationship("Projekt", backref="nabidky")
+    konzultant  = db.relationship("User", backref="nabidky")
+    polozky     = db.relationship("NabidkaPolozka", backref="nabidka",
+                                   cascade="all, delete-orphan", order_by="NabidkaPolozka.poradi")
+
+    @property
+    def celkova_cena(self):
+        return sum(p.celkem_bez_dph for p in self.polozky)
+
+    @property
+    def celkova_dph(self):
+        return sum(p.dph_castka for p in self.polozky)
+
+    @property
+    def celkova_cena_s_dph(self):
+        return self.celkova_cena + self.celkova_dph
+
+class NabidkaPolozka(db.Model):
+    __tablename__ = "nabidka_polozka"
+    id          = db.Column(db.Integer, primary_key=True)
+    nabidka_id  = db.Column(db.Integer, db.ForeignKey("nabidka.id"), nullable=False)
+    poradi      = db.Column(db.Integer, default=0)
+    nazev       = db.Column(db.String(300), nullable=False)
+    popis       = db.Column(db.Text, default="")
+    mnozstvi    = db.Column(db.Numeric(10, 2), default=1)
+    jednotka    = db.Column(db.String(30), default="ks")  # ks, m, m2, hod, paušál
+    cena_ks     = db.Column(db.Numeric(12, 2), default=0)
+    sleva_pct   = db.Column(db.Numeric(5, 2), default=0)
+    dph_pct     = db.Column(db.Numeric(5, 2), default=0)  # 0 = bez DPH, 21 = 21%, atd.
+
+    @property
+    def celkem_bez_dph(self):
+        zaklad = float(self.mnozstvi) * float(self.cena_ks)
+        return zaklad * (1 - float(self.sleva_pct) / 100)
+
+    @property
+    def celkem(self):
+        return self.celkem_bez_dph
+
+    @property
+    def dph_castka(self):
+        return self.celkem_bez_dph * float(self.dph_pct) / 100
+
+    @property
+    def celkem_s_dph(self):
+        return self.celkem_bez_dph + self.dph_castka
+

@@ -36,36 +36,14 @@ def create_app():
     db.init_app(app)
 
     # ─── Registrace blueprintů ────────────────────────────────────────────────
-    import sys, traceback as _tb
-    _bps = [
-        ('.routes.main',    'main_bp'),
-        ('.routes.klienti', 'klienti_bp'),
-        ('.routes.nabidky', 'nabidky_bp'),
-        ('.routes.zapisy',  'zapisy_bp'),
-        ('.routes.freelo',  'freelo_bp'),
-        ('.routes.admin',   'admin_bp'),
-        ('.routes.report',  'report_bp'),
-        ('.routes.portal',  'portal_bp'),
-    ]
-    _loaded = {}
-    for _mod, _alias in _bps:
-        try:
-            import importlib as _il
-            _m = _il.import_module(_mod, package='app')
-            _loaded[_alias] = _m.bp
-            print(f"  ✅ {_mod}", flush=True)
-        except Exception as _e:
-            print(f"  ❌ {_mod}: {_e}", flush=True)
-            _tb.print_exc(file=sys.stdout)
-            raise
-    main_bp    = _loaded['main_bp']
-    klienti_bp = _loaded['klienti_bp']
-    nabidky_bp = _loaded['nabidky_bp']
-    zapisy_bp  = _loaded['zapisy_bp']
-    freelo_bp  = _loaded['freelo_bp']
-    admin_bp   = _loaded['admin_bp']
-    report_bp  = _loaded['report_bp']
-    portal_bp  = _loaded['portal_bp']
+    from .routes.main    import bp as main_bp
+    from .routes.klienti import bp as klienti_bp
+    from .routes.nabidky import bp as nabidky_bp
+    from .routes.zapisy  import bp as zapisy_bp
+    from .routes.freelo  import bp as freelo_bp
+    from .routes.admin   import bp as admin_bp
+    from .routes.report  import bp as report_bp
+    from .routes.portal  import bp as portal_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(klienti_bp)
