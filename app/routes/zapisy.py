@@ -16,6 +16,22 @@ import requests
 import json as _json
 bp = Blueprint("zapisy", __name__)
 
+@bp.route("/novy")
+@login_required
+def novy_zapis():
+    klienti     = Klient.query.filter_by(is_active=True).order_by(Klient.nazev).all()
+    konzultanti = User.query.filter_by(is_active=True).all()
+    return render_template("novy.html", klienti=klienti,
+                           konzultanti=konzultanti, template_names=TEMPLATE_NAMES)
+
+
+@bp.route("/novy/projekty/<int:klient_id>")
+@login_required
+def get_projekty_for_klient(klient_id):
+    projekty = Projekt.query.filter_by(klient_id=klient_id, is_active=True).all()
+    return jsonify([{"id": p.id, "nazev": p.nazev} for p in projekty])
+
+
 @bp.route("/api/generovat", methods=["POST"])
 @login_required
 def generovat():
