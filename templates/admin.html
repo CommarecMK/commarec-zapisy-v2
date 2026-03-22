@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+{% block title %}Správa{% endblock %}
+{% block extra_head %}
+<style>
+.role-badge { display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; padding:3px 9px; border-radius:3px; }
+.role-superadmin { background:#173767; color:white; }
+.role-admin      { background:rgba(0,175,240,0.15); color:#0085B8; }
+.role-konzultant { background:rgba(52,199,89,0.12); color:#0A7A5A; }
+.role-obchodnik  { background:rgba(255,141,0,0.12); color:#C06A00; }
+.role-junior     { background:rgba(255,56,60,0.1); color:#C0392B; }
+.role-klient     { background:#f0f3f7; color:#4A6080; border:1px solid var(--border); }
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(14,33,62,0.65); z-index:2000; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal-box { background:white; border-radius:8px; padding:28px 32px; width:520px; max-width:calc(100vw - 32px); box-shadow:0 20px 60px rgba(0,0,0,0.3); max-height:90vh; overflow-y:auto; }
+.modal-title { font-family:'Montserrat',sans-serif; font-size:16px; font-weight:900; color:#173767; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:20px; }
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.form-field { display:flex; flex-direction:column; gap:4px; }
+.form-field.full { grid-column:1/-1; }
+.form-field label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#4A6080; }
+.form-field input, .form-field select { padding:8px 10px; border:1.5px solid var(--border); border-radius:4px; font-size:13px; font-family:'Montserrat',sans-serif; width:100%; }
+.form-field input:focus, .form-field select:focus { outline:none; border-color:#00AFF0; }
+.modal-foot { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+.role-desc { background:#f0f5fb; border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:12px; color:#4A6080; line-height:1.6; }
+.role-desc strong { color:#173767; }
+.user-table { width:100%; border-collapse:collapse; }
+.user-table th { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#4A6080; padding:10px 16px; text-align:left; border-bottom:2px solid var(--border); }
+.user-table td { padding:12px 16px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.user-table tr:last-child td { border-bottom:none; }
+.user-table tr:hover td { background:#fafbfd; }
+.user-name { font-size:13px; font-weight:700; color:#173767; }
+.user-email { font-size:11px; color:#4A6080; margin-top:2px; }
+.user-klient { font-size:11px; color:#00AFF0; margin-top:2px; }
+.tmpl-panel{display:none;background:#f7f9fb;border-top:1px solid var(--border);padding:20px;}
+.tmpl-panel.open{display:block;}
+.tmpl-prompt-area{width:100%;min-height:240px;padding:10px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:"Courier New",monospace;line-height:1.6;resize:vertical;background:white;color:#1a2533;box-sizing:border-box;}
+.tmpl-prompt-area:focus{outline:none;border-color:#00AFF0;}
+.tmpl-expand-btn{font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;background:white;border:1.5px solid var(--border);color:#173767;padding:5px 14px;border-radius:5px;cursor:pointer;text-transform:uppercase;letter-spacing:0.05em;}
+.tmpl-expand-btn:hover{border-color:#173767;}
+.tmpl-expand-btn.open{background:#173767;color:white;border-color:#173767;}
+.tmpl-save-btn{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:900;background:#173767;color:white;border:none;padding:7px 20px;border-radius:5px;cursor:pointer;text-transform:uppercase;letter-spacing:0.04em;}
+.tmpl-reset-btn{font-size:12px;font-weight:600;font-family:'Montserrat',sans-serif;background:white;color:#4A6080;border:1.5px solid var(--border);padding:6px 14px;border-radius:5px;cursor:pointer;}
+.tmpl-reset-btn:hover{border-color:#C0392B;color:#C0392B;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  {% if admin_flash %}
+  <div style="background:#173767;color:white;padding:16px 24px;border-radius:8px;margin-bottom:24px;display:flex;align-items:center;gap:14px;">
+    <span style="font-size:24px;flex-shrink:0;">&#9432;</span>
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;opacity:0.6;margin-bottom:4px;">Akce provedena</div>
+      <div style="font-size:15px;font-weight:600;">{{ admin_flash }}</div>
+      <div style="font-size:11px;opacity:0.5;margin-top:4px;">Pokud jde o nové heslo — zkopíruj ho teď, znovu ho nezobrazíme.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="page-header">
+    <h1>Správa</h1>
+    <button onclick="document.getElementById('modal-pridat').classList.add('open')" class="btn btn-navy">+ Přidat uživatele</button>
+  </div>
+
+  <!-- UŽIVATELÉ -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="kd-card-head"><h2>Uživatelé ({{ users|length }})</h2></div>
+    <table class="user-table">
+      <thead>
+        <tr><th>Uživatel</th><th>Role</th><th>Stav</th><th>Zápisy</th><th></th></tr>
+      </thead>
+      <tbody>
+      {% for u in users %}
+      <tr>
+        <td>
+          <div class="user-name">{{ u.name }}</div>
+          <div class="user-email">{{ u.email }}</div>
+          {% if u.klient_vazba %}<div class="user-klient">🔗 {{ u.klient_vazba.nazev }}</div>{% endif %}
+        </td>
+        <td>
+          <span class="role-badge role-{{ u.role }}">
+            {{ {'superadmin':'👑 Superadmin','admin':'⚡ Admin','konzultant':'🟢 Konzultant','obchodnik':'🔵 Obchodník','junior':'🟠 Junior','klient':'⚪ Klient'}.get(u.role, u.role) }}
+          </span>
+        </td>
+        <td>{% if u.is_active %}<span class="badge badge-green">Aktivní</span>{% else %}<span class="badge badge-gray">Neaktivní</span>{% endif %}</td>
+        <td style="font-size:12px;color:#4A6080;">{{ u.zapisy|length }}</td>
+        <td style="text-align:right;white-space:nowrap;">
+          <button onclick="openEditModal({{ u.id }},'{{ u.name|replace("'","\\'") }}','{{ u.email }}','{{ u.role }}',{{ 'true' if u.is_active else 'false' }},{{ u.klient_id or 'null' }})"
+            class="btn btn-secondary btn-sm">Upravit</button>
+          {% if u.id != session.user_id and u.role != 'superadmin' %}
+          <form method="POST" action="{{ url_for('admin_bp.smazat_uzivatele', user_id=u.id) }}" style="display:inline;"
+            onsubmit="return confirm('Smazat {{ u.name }}?\nZápisy zůstanou v systému.')">
+            <button type="submit" class="btn btn-danger btn-sm">Smazat</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- PŘEHLED OPRÁVNĚNÍ -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="kd-card-head"><h2>Přehled oprávnění</h2></div>
+    <div class="kd-card-body" style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);">
+          <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#4A6080;min-width:160px;">Funkce</th>
+          {% for r,l in [('Junior','🟠'),('Konzultant','🟢'),('Obchodník','🔵'),('Admin','⚡'),('Superadmin','👑'),('Klient','⚪')] %}
+          <th style="padding:8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#4A6080;">{{ l }} {{ r }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for label, vals in [
+        ('Vytvořit zápis',       ['✅','✅','❌','✅','✅','❌']),
+        ('Editovat svůj zápis',  ['✅','✅','❌','✅','✅','❌']),
+        ('Editovat cizí zápis',  ['❌','❌','❌','✅','✅','❌']),
+        ('Smazat zápis',         ['❌','❌','❌','✅','✅','❌']),
+        ('Vidět klienty',        ['přiřazené','všechny','všechny','všechny','všechny','jen sebe']),
+        ('Přidat/editovat klienta',['❌','❌','❌','✅','✅','❌']),
+        ('Smazat klienta',       ['❌','❌','❌','❌','✅','❌']),
+        ('Nabídky — vytvořit',   ['❌','❌','✅','✅','✅','❌']),
+        ('Nabídky — číst',       ['❌','❌','✅','✅','✅','✅']),
+        ('Odeslat do Freela',    ['❌','✅','❌','✅','✅','❌']),
+        ('Nastavit Freelo',      ['❌','❌','❌','✅','✅','❌']),
+        ('Správa uživatelů',     ['❌','❌','❌','❌','✅','❌']),
+        ('AI šablony',           ['❌','❌','❌','❌','✅','❌']),
+      ] %}
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:8px 12px;font-weight:600;color:#173767;">{{ label }}</td>
+        {% for v in vals %}
+        <td style="padding:8px;text-align:center;{% if v=='✅' %}color:#0A7A5A;font-size:14px;{% elif v=='❌' %}color:#D0DAE8;font-size:14px;{% else %}font-size:10px;color:#4A6080;{% endif %}">{{ v }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- FREELO -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="kd-card-head"><h2>Freelo diagnostika</h2></div>
+    <div class="kd-card-body" style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="/freelo-test" target="_blank" class="btn btn-navy btn-sm">Test zodpovědné osoby</a>
+      <a href="/api/freelo/test-kompletni" target="_blank" class="btn btn-secondary btn-sm">Kompletní test API</a>
+    </div>
+  </div>
+
+  <!-- ŠABLONY -->
+  <div class="card" style="margin-bottom:1.5rem;padding:0;overflow:hidden;">
+    <div class="kd-card-head"><h2>Šablony zápisů ({{ template_names|length }})</h2></div>
+    {% set sec_labels = {
+      'participants_commarec':'Zastoupení Commarec','participants_company':'Zastoupení klienta',
+      'introduction':'Úvod','meeting_goal':'Účel','findings':'Zjištění','ratings':'Hodnocení',
+      'processes_description':'Popis procesu','dangers':'Rizika','suggested_actions':'Akční kroky',
+      'expected_benefits':'Přínosy','additional_notes':'Poznámky','summary':'Shrnutí',
+    } %}
+    <table>
+      <thead><tr><th>Šablona</th><th>Prompt</th><th style="width:110px;"></th></tr></thead>
+      <tbody>
+      {% for key, name in template_names.items() %}
+      {% set cfg = tmpl_configs.get(key) %}
+      {% set sections = tmpl_sections.get(key, []) %}
+      {% set current_prompt = cfg.system_prompt if cfg and cfg.system_prompt else '' %}
+      <tr>
+        <td style="padding:14px 20px;">
+          <div style="font-size:14px;font-weight:700;color:#173767;">{{ name }}</div>
+          <div style="font-size:10px;color:#8aa0b8;margin-top:2px;text-transform:uppercase;letter-spacing:0.05em;">{{ key }}</div>
+        </td>
+        <td style="padding:14px 20px;">
+          {% if current_prompt %}<span class="badge badge-green">Vlastní</span>{% else %}<span class="badge badge-gray">Výchozí</span>{% endif %}
+        </td>
+        <td style="text-align:right;padding:14px 20px;">
+          <button class="tmpl-expand-btn" id="tbtn-{{ key }}" onclick="tToggle('{{ key }}')">Upravit</button>
+        </td>
+      </tr>
+      <tr id="tpanel-{{ key }}" style="display:none;">
+        <td colspan="3" style="padding:0;">
+          <div class="tmpl-panel open">
+            <form method="POST" action="{{ url_for('admin_bp.admin_template_save', template_key=key) }}">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#4A6080;margin-bottom:6px;">
+                Sekce: {% for s in sections %}<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;background:#f0f3f7;color:#4A6080;border:1px solid var(--border);margin-right:3px;">{{ sec_labels.get(s,s) }}</span>{% endfor %}
+              </div>
+              <textarea name="system_prompt" class="tmpl-prompt-area" placeholder="Nechte prázdné pro výchozí prompt...">{{ current_prompt }}</textarea>
+              <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+                <button type="submit" class="tmpl-save-btn">Uložit prompt</button>
+                {% if current_prompt %}
+                <button type="button" class="tmpl-reset-btn"
+                  onclick="if(confirm('Obnovit výchozí prompt?'))fetch('{{ url_for('admin_bp.admin_template_reset', template_key=key) }}',{method:'POST'}).then(()=>location.reload())">
+                  Obnovit výchozí
+                </button>
+                {% endif %}
+              </div>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div><!-- /container -->
+
+<!-- MODAL: Přidat uživatele -->
+<div id="modal-pridat" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">Přidat uživatele</div>
+    <form method="POST" action="{{ url_for('admin_bp.pridat_uzivatele') }}" onsubmit="return validateNewForm()">
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Jméno *</label>
+          <input type="text" name="name" required placeholder="Jan Novák">
+        </div>
+        <div class="form-field">
+          <label>Email *</label>
+          <input type="email" name="email" required placeholder="jan@commarec.cz">
+        </div>
+        <div class="form-field full">
+          <label>Role *</label>
+          <select name="role" id="new-role" onchange="onRoleChange('new')">
+            <option value="konzultant">🟢 Konzultant — vytváří zápisy, Freelo</option>
+            <option value="junior">🟠 Junior — zápisy bez Freela, omezený přístup</option>
+            <option value="obchodnik">🔵 Obchodník — vytváří nabídky</option>
+            <option value="admin">⚡ Admin — správa klientů, edituje vše</option>
+            <option value="superadmin">👑 Superadmin — plný přístup</option>
+            <option value="klient">⚪ Klient — portál pouze ke čtení</option>
+          </select>
+        </div>
+        <div class="form-field full" id="new-klient-field" style="display:none;">
+          <label>Přiřadit klienta (povinné pro roli Klient)</label>
+          <select name="klient_id" id="new-klient-select">
+            <option value="">— vyberte klienta —</option>
+            {% for k in klienti %}<option value="{{ k.id }}">{{ k.nazev }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="role-desc" id="new-role-desc">
+        <strong>Konzultant:</strong> Vytváří a edituje vlastní zápisy, odesílá úkoly do Freela, vidí všechny klienty.
+      </div>
+      <div style="background:#f0f7ff;border:1px solid #c0d8f0;border-radius:6px;padding:10px 14px;margin-bottom:4px;font-size:12px;color:#173767;">
+        💡 <strong>Heslo se vygeneruje automaticky.</strong> Zobrazí se po vytvoření — zkopíruj ho a předej uživateli.
+      </div>
+      <div class="modal-foot">
+        <button type="button" onclick="document.getElementById('modal-pridat').classList.remove('open')" class="btn btn-secondary">Zrušit</button>
+        <button type="submit" class="btn btn-navy">Přidat uživatele</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Upravit uživatele -->
+<div id="modal-upravit" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title">Upravit uživatele</div>
+    <form method="POST" id="form-upravit">
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Jméno *</label>
+          <input type="text" name="name" id="edit-name" required>
+        </div>
+        <div class="form-field">
+          <label>Email</label>
+          <input type="text" id="edit-email-display" disabled style="background:#f0f3f7;color:#4A6080;">
+        </div>
+        <div class="form-field full">
+          <label>Role</label>
+          <select name="role" id="edit-role" onchange="onRoleChange('edit')">
+            <option value="konzultant">🟢 Konzultant</option>
+            <option value="junior">🟠 Junior konzultant</option>
+            <option value="obchodnik">🔵 Obchodník</option>
+            <option value="admin">⚡ Admin</option>
+            <option value="superadmin">👑 Superadmin</option>
+            <option value="klient">⚪ Klient</option>
+          </select>
+        </div>
+        <div class="form-field full" id="edit-klient-field" style="display:none;">
+          <label>Přiřadit klienta</label>
+          <select name="klient_id" id="edit-klient-select">
+            <option value="">— vyberte klienta —</option>
+            {% for k in klienti %}<option value="{{ k.id }}">{{ k.nazev }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-field full">
+          <label>Nové heslo (ponech prázdné = beze změny)</label>
+          <input type="password" name="password" placeholder="••••••••" autocomplete="new-password">
+        </div>
+        <div class="form-field">
+          <label>Stav účtu</label>
+          <select name="is_active" id="edit-is-active">
+            <option value="1">Aktivní</option>
+            <option value="">Neaktivní (zablokovaný)</option>
+          </select>
+        </div>
+      </div>
+      <div class="role-desc" id="edit-role-desc"></div>
+      <div class="modal-foot">
+        <button type="button" onclick="document.getElementById('modal-upravit').classList.remove('open')" class="btn btn-secondary">Zrušit</button>
+        <button type="submit" class="btn btn-navy">Uložit změny</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const ROLE_DESCS = {
+  konzultant: '<strong>Konzultant:</strong> Vytváří a edituje vlastní zápisy, odesílá úkoly do Freela, vidí všechny klienty.',
+  junior:     '<strong>Junior konzultant:</strong> Vytváří vlastní zápisy, vidí jen přiřazené klienty, neodesílá do Freela samostatně.',
+  obchodnik:  '<strong>Obchodník:</strong> Vytváří a spravuje nabídky, vidí všechny klienty a zápisy (jen čtení).',
+  admin:      '<strong>Admin:</strong> Správa klientů, edituje všechny zápisy i nabídky, Freelo nastavení. Bez správy uživatelů.',
+  superadmin: '<strong>Superadmin:</strong> Plný přístup — správa uživatelů, editace AI šablon, mazání čehokoliv.',
+  klient:     '<strong>Klient:</strong> Přihlásí se do klientského portálu (/portal) a vidí pouze své zápisy, nabídky a Freelo úkoly. Nemůže nic editovat.',
+};
+
+function onRoleChange(prefix) {
+  const sel = document.getElementById(prefix === 'new' ? 'new-role' : 'edit-role');
+  const role = sel.value;
+  const klientField = document.getElementById(prefix + '-klient-field');
+  if (klientField) klientField.style.display = role === 'klient' ? 'flex' : 'none';
+  const desc = document.getElementById(prefix + '-role-desc');
+  if (desc) desc.innerHTML = ROLE_DESCS[role] || '';
+}
+
+// Init desc on load
+onRoleChange('new');
+
+function openEditModal(id, name, email, role, isActive, klientId) {
+  document.getElementById('edit-name').value = name;
+  document.getElementById('edit-email-display').value = email;
+  document.getElementById('edit-role').value = role;
+  document.getElementById('edit-is-active').value = isActive ? '1' : '';
+  document.getElementById('form-upravit').action = `/admin/upravit-uzivatele/${id}`;
+  const klientField = document.getElementById('edit-klient-field');
+  klientField.style.display = role === 'klient' ? 'flex' : 'none';
+  const klientSel = document.getElementById('edit-klient-select');
+  klientSel.value = klientId || '';
+  document.getElementById('edit-role-desc').innerHTML = ROLE_DESCS[role] || '';
+  document.getElementById('modal-upravit').classList.add('open');
+}
+
+function validateNewForm() {
+  const role = document.getElementById('new-role').value;
+  if (role === 'klient') {
+    const klientId = document.getElementById('new-klient-select').value;
+    if (!klientId) { alert('Pro roli Klient musíš vybrat klienta!'); return false; }
+  }
+  return true;
+}
+
+function tToggle(key) {
+  const panel = document.getElementById('tpanel-' + key);
+  const btn = document.getElementById('tbtn-' + key);
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : '';
+  btn.classList.toggle('open', !isOpen);
+}
+
+document.addEventListener('click', e => {
+  ['modal-pridat','modal-upravit'].forEach(id => {
+    if (e.target === document.getElementById(id))
+      document.getElementById(id).classList.remove('open');
+  });
+});
+</script>
+{% endblock %}
