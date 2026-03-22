@@ -1,524 +1,533 @@
-# CLAUDE.md — Commarec Zápisy
-> Tento soubor čti VŽDY jako první. Pak načti kód z GitHubu, projdi web živě a navrhni konkrétní posun.
+# CLAUDE.md — Commarec Zápisy v2
+> Přečti tento soubor CELÝ jako první krok v každé session. Pak se podívej na živou aplikaci a navrhni konkrétní posun.
 
 ---
 
 ## 🚀 Rychlý start pro novou session
+
 ```
-1. Přečti tento soubor celý
-2. Stáhni ZIP z GitHubu: https://github.com/CommarecMK/commarec-zapisy
-3. Podívej se na živou aplikaci: https://web-production-76f2.up.railway.app
-   - Přihlas se: admin@commarec.cz / admin123
-   - Projdi: /prehled, /klient/1, /report/mesicni, /zapis/1
-4. Navrhni TOP 3 konkrétní vylepšení na základě aktuálního stavu
-5. Připrav ZIP k uploadu — vždy jen změněné soubory
+1. Přečti tento soubor celý (ušetří hodiny debuggingu)
+2. Stáhni ZIP z GitHubu:
+     v1 (produkce):  https://github.com/CommarecMK/commarec-zapisy
+     v2 (refactored): https://github.com/CommarecMK/commarec-zapisy-v2
+3. Zkontroluj živou aplikaci: https://web-production-76f2.up.railway.app
+     Login: admin@commarec.cz / admin123
+     Projdi: /prehled, /klient/1, /admin, /portal, /report/mesicni
+4. Navrhni TOP 3 konkrétní vylepšení
+5. Připrav vždy KOMPLETNÍ ZIP celého repozitáře k uploadu
 6. Po každé změně aktualizuj CHANGELOG v tomto souboru
 ```
 
 ---
 
 ## 📍 Co je tento projekt
+
 Interní Flask aplikace **Commarec s.r.o.** — konzultační firma zaměřená na optimalizaci skladů a logistiky.
 
-**Hlavní use case:** Martin (a tým) ji používá po každé schůzce s klientem — nahraje přepis nebo poznámky, AI vygeneruje profesionální zápis, ten putuje do Freelea jako úkoly.
+**Hlavní use case:** Martin (a tým) ji používá po každé schůzce s klientem — nahraje přepis nebo poznámky, AI vygeneruje profesionální zápis, ten putuje do Freela jako úkoly. Klienti vidí výsledky v klientském portálu.
 
-**Uživatelé:**
-- Celý tým Commarec (konzultanti, Martin)
-- Klienti uvidí části aplikace (veřejné zápisy, výhledově klientský portál)
+**Klíčová priorita:** Stabilita a ostré firemní použití. Aplikace se používá po každé schůzce — nesmí padat.
 
-**Klíčová priorita:** Stabilita a ostré použití. Aplikace se používá po každé schůzce — nesmí padat.
-
-**Live:** https://web-production-76f2.up.railway.app
-**GitHub:** https://github.com/CommarecMK/commarec-zapisy
-**Hosting:** Railway (auto-deploy z main branch, cca 2 min)
-**Login:** admin@commarec.cz / admin123
+| | |
+|---|---|
+| **Live URL** | https://web-production-76f2.up.railway.app |
+| **GitHub v1** | https://github.com/CommarecMK/commarec-zapisy |
+| **GitHub v2** | https://github.com/CommarecMK/commarec-zapisy-v2 |
+| **Hosting** | Railway (auto-deploy z main branch, ~2 min) |
+| **Login** | admin@commarec.cz / admin123 |
 
 ---
 
 ## 🏗 Tech Stack
-- Backend: Python Flask + SQLAlchemy
-- Databáze: PostgreSQL (Railway)
-- AI: Claude claude-sonnet-4-5 (Anthropic API)
-- Frontend: Jinja2 + vanilla JS + custom CSS (žádný framework)
-- Deploy: Gunicorn 4 workers (gthread)
-- Fonty: **Montserrat všude** (DrukCondensed byl odstraněn 22. 3. 2026)
+
+```
+Backend:    Python Flask + SQLAlchemy
+Databáze:   PostgreSQL (Railway managed)
+AI:         Claude claude-sonnet-4-5 (Anthropic API)
+Frontend:   Jinja2 + vanilla JS + custom CSS (žádný framework)
+Deploy:     Gunicorn 2 workers (gthread), Railway
+Fonty:      Montserrat všude (DrukCondensed odstraněn 22.3.2026)
+```
 
 ---
 
-## 📁 Struktura souborů
-```
-app.py                  — monolitický hlavní soubor (~3200 řádků) ⚠️
-seed_extra.py           — demo data (5 klientů, různé fáze projektů)
-CLAUDE.md               — tento soubor (VŽDY aktualizuj po změně)
-requirements.txt        — Python závislosti
-railway.toml            — Railway konfigurace
+## 📁 Struktura souborů (v2 — refactored)
 
-templates/
-  base.html             — nav (lean: Přehled | +Nový zápis | AI Report | Správa), CSS variables
-  prehled.html          — NOVÁ hlavní stránka /prehled (nahradila /home + /crm)
-  klient_detail.html    — PŘEPRACOVANÝ detail klienta — vše na jednom místě + Freelo panel
-  detail.html           — detail zápisu (AI obsah, Freelo úkoly, print CSS)
-  novy.html             — formulář nového zápisu (3 šablony)
-  nabidka_detail.html   — nabídka: editace položek, PDF (window.print)
-  nabidka_nova.html     — nová nabídka
-  progress_report.html  — report za období + Freelo splněné úkoly
-  report_mesicni.html   — NOVÝ AI měsíční report generovaný Claudem
-  admin.html            — správa uživatelů, šablon
-  404.html, 500.html    — NOVÉ error stránky s brand stylem
-  login.html, verejny.html, projekt_detail.html, klienti.html, dashboard.html
+```
+run.py                      ← vstupní bod (gunicorn run:app)
+seed_extra.py               ← demo data (3 klienti x různé fáze projektů)
+CLAUDE.md                   ← tento soubor (VŽDY aktualizuj po změně)
+requirements.txt
+Procfile                    ← web: gunicorn run:app ...
+railway.toml
+
+app/
+  __init__.py               ← app factory: create_app(), _init_db(), registrace blueprintů
+  extensions.py             ← db instance, ANTHROPIC_API_KEY, FREELO_*, env vars
+  models.py                 ← všechny SQLAlchemy modely
+  auth.py                   ← login_required, admin_required, role_required
+                               get_current_user(), can(action, obj), ROLE_PERMISSIONS
+  config.py                 ← TEMPLATE_PROMPTS, TEMPLATE_NAMES, TEMPLATE_SECTIONS,
+                               SYSTEM_PROMPT_BASE, SECTION_TITLES, get_template_prompt()
+  seed.py                   ← seed_test_data()
+
+  services/
+    freelo.py               ← freelo_get/post/patch/delete/auth()
+                               resolve_worker_id(), find_project_id_for_tasklist()
+    ai_service.py           ← build_system_prompt(), condensed_transcript(),
+                               extract_klient_profil(), assemble_output_text()
+
+  routes/
+    main.py      ← Blueprint "main":    login, logout, dashboard, prehled, crm,
+                                        progress_report, projekt routes
+    klienti.py   ← Blueprint "klienti": /klient/*, API klient edit/profil/poznamky
+    nabidky.py   ← Blueprint "nabidky": /nabidka/*, položky
+    zapisy.py    ← Blueprint "zapisy":  /novy, /zapis/*, /api/generovat, /api/zapis/*
+    freelo.py    ← Blueprint "freelo":  všechny /api/freelo/* endpointy
+    admin.py     ← Blueprint "admin_bp": /admin, uživatelé, šablony
+    report.py    ← Blueprint "report":  /report/mesicni, /api/report/generovat
+    portal.py    ← Blueprint "portal":  /portal (klientský portál)
+
+templates/                  ← Jinja2 šablony
+  base.html                 ← nav, CSS variables
+  prehled.html              ← hlavní stránka: klienti, filtry, skóre
+  klient_detail.html        ← detail klienta: info + Freelo + zápisy + nabídky
+  detail.html               ← detail zápisu: AI obsah, editace, Freelo úkoly
+  novy.html                 ← nový zápis (3 šablony)
+  admin.html                ← správa uživatelů, šablon, přehled oprávnění
+  portal.html               ← klientský portál (standalone design)
+  403.html, 404.html, 500.html
+  nabidka_detail.html, nabidka_nova.html
+  projekt_detail.html, klient_vyvoj.html
+  progress_report.html, report_mesicni.html
+  login.html, verejny.html, klienti.html, dashboard.html
 
 static/
   logo-dark.svg, logo-white.svg
+  format.js                 ← score badges, formátování tabulek
 ```
 
 ---
 
-## 🗄 Databázové modely
+## 🗄 Databázové modely (app/models.py)
+
 ```python
 Klient:
-  nazev, slug, kontakt, email, telefon, adresa (provozní), sidlo (fakturační),
-  ic, dic, logo_url, profil_json (AI extrakce), poznamka, is_active
-  freelo_tasklist_id  ← NOVÉ: statické napojení klienta na Freelo tasklist
+  nazev, slug, kontakt, email, telefon
+  adresa (provozní), sidlo (fakturační), ic, dic
+  logo_url, profil_json (AI extrakce), poznamka, is_active
+  freelo_tasklist_id  ← KEY: napojení klienta na Freelo tasklist
 
 Projekt:
-  nazev, klient_id, user_id, datum_od, datum_do, is_active,
-  freelo_project_id, freelo_tasklist_id  ← legacy (nově se používá klient.freelo_tasklist_id)
+  nazev, klient_id, user_id, datum_od, datum_do, is_active
+  freelo_project_id, freelo_tasklist_id  ← legacy
 
 Zapis:
-  title, template (audit/operativa/obchod), input_text, output_json, output_text,
-  tasks_json, notes_json, interni_prompt, freelo_sent, public_token, is_public,
+  title, template (audit/operativa/obchod)
+  input_text, output_json, output_text
+  tasks_json, notes_json, interni_prompt
+  freelo_sent, public_token, is_public
   user_id, klient_id, projekt_id
 
 Nabidka:
-  cislo (NAB-YYYY-NNN auto), klient_id, projekt_id, user_id,
+  cislo (NAB-YYYY-NNN auto), klient_id, projekt_id, user_id
   nazev, poznamka, stav, platnost_do, mena
 
 NabidkaPolozka:
   nabidka_id, poradi, nazev, popis, mnozstvi, jednotka, cena_ks, sleva_pct, dph_pct
 
-User: email, name, role (superadmin/admin/konzultant), is_admin
-TemplateConfig: template_key, name, system_prompt (editovatelný)
+User:
+  email, name, password_hash
+  role (superadmin/admin/konzultant/obchodnik/junior/klient)
+  is_admin (bool, zpětná kompatibilita — odvozen z role)
+  is_active
+  klient_id  ← pro roli "klient" — propojení s klientem
+
+TemplateConfig:
+  template_key, name, system_prompt (editovatelný přes /admin)
 ```
 
 ---
 
-## 🛣 Klíčové routes
-```
-/                   → redirect na /prehled
-/prehled            NOVÁ hlavní stránka — přehled klientů, filtry, skóre (nahradila /home + /crm)
-/klient/<id>        PŘEPRACOVANÝ detail klienta (info + edit + Freelo + nabídky + timeline)
-/klient/novy, /klient/<id>/upravit
-/dashboard          starý přehled zápisů (záložní)
-/progress-report    report za období + Freelo splněné úkoly
-/report/mesicni     NOVÝ AI měsíční report
-/nabidka/nova       nová nabídka (s klient_id param)
-/nabidka/<id>       detail nabídky, editace, PDF
-/nabidka/<id>/ulozit  AJAX save (JSON)
-/nabidka/<id>/stav  změna stavu
-/zapis/<id>         detail zápisu
-/z/<token>          veřejný zápis (bez přihlášení)
-/admin, /admin/templates
+## 👥 Systém rolí (app/auth.py)
 
---- Freelo API endpoints (NOVÉ) ---
-GET  /api/klient/<id>/freelo-ukoly          načte úkoly z tasklist klienta
-POST /api/klient/<id>/freelo-nastavit       uloží tasklist_id ke klientovi
-POST /api/klient/<id>/freelo-pridat-ukol    vytvoří nový úkol
-GET  /api/klient/<id>/freelo-members        členové projektu pro přiřazení
-POST /api/freelo/task/<id>/stav             finish/activate (POST /task/{id}/finish nebo /activate)
-POST /api/freelo/task/<id>/edit             PUT /task/{id} + POST /task/{id}/description
-POST /api/freelo/task/<id>/komentar         přidá komentář
-GET  /api/freelo/task/<id>/komentare        načte komentáře
-GET  /api/freelo/task/<id>/detail           detail úkolu vč. description
-GET  /api/freelo/task/<id>/podukoly         podúkoly (GET /task/{id}/subtasks)
-POST /api/klient/<id>/freelo-pridat-podukol vytvoří podúkol
-POST /api/freelo/task/<id>/smazat           smaže úkol
-GET  /api/freelo/tasklists-all              všechny tasklists pro výběr
-GET  /api/freelo/projects                   projekty (fungující endpoint)
-GET  /api/freelo/members/<project_id>       členové projektu (fungující endpoint)
+### 6 rolí
+
+| Role | Popis |
+|---|---|
+| 👑 superadmin | Plný přístup — správa uživatelů, AI šablony, mazání |
+| ⚡ admin | Správa klientů, edituje vše, Freelo nastavení |
+| 🟢 konzultant | Vlastní zápisy, Freelo, vidí vše |
+| 🔵 obchodnik | Nabídky, čtení klientů/zápisů |
+| 🟠 junior | Vlastní zápisy, bez Freela, jen přiřazení klienti |
+| ⚪ klient | Pouze /portal — čtení svých dat |
+
+### Klíčové funkce
+
+```python
+from app.auth import login_required, admin_required, role_required, get_current_user, can
+
+@login_required            # přesměruje na login; klient → /portal
+@admin_required            # pouze superadmin, jinak 403
+@role_required('admin', 'konzultant')  # vybrané role, jinak 403
+
+get_current_user()         # vrátí User nebo None
+can('edit_zapis', obj)     # True/False podle role + vlastnictví
+can('manage_klient')
+can('send_freelo')
+can('nabidky')
+can('delete_klient')       # jen superadmin
+can('manage_users')        # jen superadmin
+```
+
+### ROLE_PERMISSIONS dict
+
+```python
+ROLE_PERMISSIONS = {
+    "admin":      {"edit_zapis_any", "delete_zapis", "manage_klient", "freelo_setup",
+                   "nabidky", "nabidky_any", "send_freelo", "view_all", "create_zapis"},
+    "konzultant": {"create_zapis", "edit_zapis_own", "send_freelo", "view_all"},
+    "obchodnik":  {"nabidky", "nabidky_any", "view_all"},
+    "junior":     {"create_zapis", "edit_zapis_own", "view_assigned"},
+    "klient":     {"portal_only"},
+}
+# superadmin: vždy True (kontroluje se zvlášť)
+```
+
+### Klientský portál (/portal)
+
+- Standalone HTML (`portal.html`) — jiný design než hlavní app
+- Záložky: Zápisy | Nabídky | Úkoly (Freelo)
+- Jen pro `role == "klient"`, ostatní → přesměrování
+- Přiřazení: v /admin vytvoř uživatele role "klient" + vyber klienta
+
+---
+
+## 🛣 Routes s blueprint prefixem
+
+```
+main:     main.login, main.logout, main.prehled, main.dashboard,
+          main.progress_report, main.projekt_detail, main.klient_vyvoj
+klienti:  klienti.klienti_list, klienti.klient_novy, klienti.klient_detail,
+          klienti.klient_upravit
+zapisy:   zapisy.novy_zapis, zapisy.detail_zapisu, zapisy.zapis_verejny
+nabidky:  nabidky.nabidka_nova, nabidky.nabidka_detail
+admin_bp: admin_bp.admin, admin_bp.pridat_uzivatele, admin_bp.smazat_uzivatele,
+          admin_bp.admin_template_save, admin_bp.admin_template_reset
+report:   report.report_mesicni
+portal:   portal.klient_portal
+
+POZOR: admin blueprint = "admin_bp" (ne "admin" — kolize s funkcí!)
+```
+
+---
+
+## 🔗 Freelo API — KOMPLETNÍ PŘEHLED
+
+⚠️ **Toto stálo desítky hodin debuggingu — PŘEČTI CELÉ!**
+
+### Auth + Base URL
+
+```
+Basic Auth: username=FREELO_EMAIL, password=FREELO_API_KEY
+Jen API klíč = 401 Bad credentials!
+Base URL: https://api.freelo.io/v1
+```
+
+### Projekt IDs — POZOR NA ZÁMĚNU!
+
+```
+501350 = správné API ID projektu CMRC (z GET /projects)
+582553 = ID z URL prohlížeče = 404 v API!
+Vždy načítej ID z GET /projects!
+```
+
+### Fungující endpointy ✅
+
+```
+GET  /projects                        projekty + embedded tasklists
+GET  /tasklist/{id}                   tasklist + tasks[] (BEZ /tasks!)
+GET  /task/{id}                       detail úkolu
+GET  /task/{id}/subtasks              {"data":{"subtasks":[...]}}
+GET  /project/{id}/workers            SINGULAR! data.workers[].id + .fullname
+
+POST /project/{pid}/tasklist/{tlid}/tasks   vytvoření úkolu
+POST /task/{id}                             EDITACE (name, due_date, worker_id)
+POST /task/{id}/description                 popis ZVLÁŠŤ po vytvoření
+POST /task/{id}/finish                      hotový
+POST /task/{id}/activate                    znovu otevřít
+POST /project/{pid}/tasklists               nový tasklist
+```
+
+### Nefungující endpointy ❌
+
+```
+PUT /task/{id}             404
+PATCH /task/{id}           404
+/projects/{id}/workers     404 (plural!)
+/project/{id}/users        404
+/tasklist/{id}/tasks       404
+/projects/.../tasks        404 (plural nefunguje!)
+```
+
+### Vytváření úkolu — vždy 2 kroky!
+
+```python
+# Krok 1: vytvoř úkol
+r = freelo_post(f"/project/{pid}/tasklist/{tlid}/tasks", {
+    "name": "...",
+    "due_date": "YYYY-MM-DD",    # volitelné
+    "worker_id": 236443          # volitelné — číslo, ne jméno!
+})
+task_id = r.json().get("id")
+
+# Krok 2: přidej popis ZVLÁŠŤ (Freelo ignoruje popis při vytvoření!)
+if desc.strip():  # NIKDY prázdný string — Freelo vrací 400!
+    freelo_post(f"/task/{task_id}/description", {"content": f"<div>{desc}</div>"})
+```
+
+### Zodpovědná osoba
+
+```python
+# Backend: jméno → worker_id
+r = freelo_get(f"/project/{project_id}/workers")
+workers = r.json().get("data", {}).get("workers", [])
+worker_id = next((w["id"] for w in workers
+                  if w["fullname"].lower() == name.lower()), None)
+
+# Known workers (projekt 582553):
+# 236443 = Martin Komárek
+# 236444 = Pavel Bezdék
+# 236445 = Markéta Komárek
+# 236446 = Jakub Matějka
+```
+
+### HTML vzor pro assignee — NIKDY <select>!
+
+```html
+<!-- select bude prázdný protože members se načítá async! -->
+<div class="asgn-wrap">
+  <input type="text" class="fl-edit-input" id="flworker-input-{id}"
+    placeholder="Vybrat..." autocomplete="off"
+    onfocus="openAD(this)" oninput="filterAD(this)"
+    value="{assignee}" style="cursor:pointer;">
+  <div class="asgn-dd"></div>
+</div>
+```
+
+CSS: `.asgn-wrap` → `.asgn-dd.open` → `.asgn-opt`
+JS: `openAD()`, `filterAD()`, `pickAsgn()`, `populateAD()`, `renderAD()`
+
+### Podúkoly — dvě ID!
+
+```
+"id"      = subtask record ID → NEPOUŽÍVAT pro API!
+"task_id" = skutečné Freelo task ID → TOTO pro finish/activate/edit
+```
+
+### Uzamčený tasklist v zápisech
+
+```python
+# detail_zapisu() v zapisy.py předává:
+klient_tasklist_id = zapis.klient.freelo_tasklist_id if zapis.klient else None
+# → detail.html zobrazí locked panel místo dropdownu
+# JS: const KLIENT_TASKLIST_ID = {{ klient_tasklist_id or 'null' }};
 ```
 
 ---
 
 ## 🎨 Brand Guidelines
+
 ```
-Navy:   #173767 (primary), #0E213E (dark), #050B15 (black)
-Cyan:   #00AFF0 (primary), #008ABD (secondary)
-Orange: #FF8D00 (nabídky, sekundární CTA)
-Zelená: #34C759 (úspěch ≥70%)
-Červená: #FF383C (danger, <40%)
+Barvy:
+  --navy:   #173767   primary
+  --cyan:   #00AFF0   akce, focus
+  --orange: #FF8D00   nabídky, sekundární CTA
+  --green:  #34C759   úspěch >=70%
+  --danger: #FF383C   chyba, <40%
+  --muted:  #4A6080   sekundární text
+  --border: #D0DAE8   rámečky
 
-MONTSERRAT — VŠE (DrukCondensed byl kompletně odstraněn 22. 3. 2026)
-  Nadpisy stránek: 26px, font-weight: 800
-  H2: 18px, font-weight: 700
-  Tělo, labely, nav: 11–14px, font-weight: 500–700
-```
+Score badges (format.js):
+  Regex: /^(\d+)\s*%?$/ + délka <= 5 znaků
+  AI občas generuje čísla bez % — zachyť obojí!
+  >=70% zelená, >=55% cyan, >=40% oranžová, <40% červená
 
----
-
-## 🔗 Freelo integrace — KOMPLETNÍ PŘEHLED
-
-### Architektura (nová)
-- **Jeden Freelo projekt pro všechny klienty** (obvykle "Consulting-test" nebo "Sklad")
-- **Každý klient = jeden tasklist** uložený v `klient.freelo_tasklist_id`
-- Nastavuje se v detailu klienta: dropdown projekt → dropdown tasklist → Uložit
-- Lze vytvořit nový tasklist přímo z aplikace
-
-### Freelo API — ověřené správné endpointy
-```
-⚠️ KRITICKÉ POZNÁMKY PRO PŘÍŠTÍHO CLAUDA — PŘEČTI CELÉ PŘED JAKOUKOLIV ZMĚNOU
-⚠️ TYTO VĚCI JSME ZJISTILI PŘÍMÝMI TESTY — NEVYMÝŠLEJ VARIANTY, POUŽIJ CO JE TU:
-
-=== AUTH ===
-Basic Auth: username = FREELO_EMAIL, password = FREELO_API_KEY
-Jen samotný API klíč NESTAČÍ — musí být email + klíč!
-
-=== PROJEKT IDs ===
-FREELO_PROJECT_ID = 501350  ← toto je správné API ID projektu CMRC
-582553 = ID z URL v prohlížeči — NEFUNGUJE v API, vrací 404!
-
-=== FUNGUJÍCÍ ENDPOINTY (ověřeno přímými testy) ===
-GET  /projects                              → seznam všech projektů + embedded tasklists
-GET  /project/{id}/workers                  → členové projektu
-     Struktura: data.workers[].id + data.workers[].fullname
-     Členové: Martin Komárek=236443, Pavel Bezdék=236444, Markéta Komárek=236445, Jakub Matějka=236446
-GET  /tasklist/{id}                         → tasklist + tasks[] (BEZ /tasks na konci!)
-GET  /task/{id}                             → detail úkolu
-GET  /task/{id}/subtasks                    → {"data":{"subtasks":[...]}}
-
-POST /project/{pid}/tasklist/{tlid}/tasks   → VYTVOŘENÍ ÚKOLU ✅ OVĚŘENO
-     ⚠️ SINGULÁR /project/ a /tasklist/, PLURÁL /tasks na konci!
-     Payload: {name, due_date, worker_id}
-     worker_id = číslo (integer), ne jméno!
-
-POST /task/{id}                             → EDITACE ÚKOLU ✅ OVĚŘENO 22.3.2026
-     Payload: {name, due_date, worker_id}
-     ⚠️ worker_id se musí přeložit ze jména přes GET /project/{id}/workers
-
-POST /task/{id}/description                 → POPIS ÚKOLU ✅ OVĚŘENO
-     ⚠️ NESMÍ se posílat při vytvoření — MUSÍ se poslat zvlášť ПІСЛЯ vytvoření!
-     ⚠️ Prázdný string {"content": ""} = Freelo vrací 400! Posílat JEN pokud desc != ""
-     Payload: {"content": "<div>text popisu</div>"}
-     Freelo IGNORUJE pole description/note/body/content při POST /tasks — jen /description funguje!
-
-POST /task/{id}/finish                      → označit jako hotový
-POST /task/{id}/activate                    → znovu otevřít
-POST /task/{id}/comments                    → přidat komentář {"content": "text"}
-
-=== NEFUNGUJÍCÍ ENDPOINTY (ověřeno = vrací 404) ===
-❌ PUT /task/{id}                           → 404
-❌ PATCH /task/{id}                         → 404
-❌ PUT /project/{pid}/tasklist/{tlid}/task/{tid} → 404
-❌ /projects/{pid}/tasklists/{tlid}/tasks   → 404 (plurál pro project/tasklist nefunguje!)
-❌ /projects/{pid}/tasklists/{tlid}/task    → 404
-❌ /tasklist/{id}/tasks                     → 404
-❌ /project/{id}/users                      → 404
-❌ /projects/{id}/workers                   → 404 (plurál nefunguje!)
-❌ /project/582553/tasklists               → 404 (špatné ID)
-
-=== ZODPOVĚDNÁ OSOBA — WORKFLOW ===
-1. Načti members: GET /project/{pid}/workers → data.workers[]
-2. Uživatel vybere jméno z autocomplete (NE select — načítá se async!)
-3. Frontend pošle jméno jako string "assignee": "Martin Komárek"
-4. Backend najde worker_id: next(w["id"] for w in workers if w["fullname"].lower() == name.lower())
-5. Pošli worker_id v POST /task/{id} nebo POST /project/.../tasks
-
-Auth: Basic (FREELO_EMAIL + FREELO_API_KEY)
-Base URL: https://api.freelo.io/v1
-```
-
-### Zodpovědná osoba v HTML — POUŽIJ VŽDY TENTO VZOR (kopie z detail.html)
-```
-⚠️ NIKDY NEPOUŽÍVEJ <select> pro zodpovědnou osobu — members se načítají async,
-   select by byl prázdný! Vždy použij text input s autocomplete stejně jako v detail.html.
-
-CSS (přesná kopie z detail.html):
-  .asgn-wrap{position:relative;}
-  .asgn-dd{display:none;position:absolute;top:100%;left:0;right:0;background:white;
-    border:1.5px solid #00AFF0;border-radius:5px;z-index:200;max-height:180px;
-    overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,0.12);}
-  .asgn-dd.open{display:block;}
-  .asgn-opt{padding:8px 12px;font-size:12px;color:#173767;cursor:pointer;}
-  .asgn-opt:hover{background:#f0f5fb;}
-
-HTML:
-  <div class="asgn-wrap">
-    <input type="text" class="task-assignee fl-in" placeholder="Vybrat..."
-      autocomplete="off" onfocus="openAD(this)" oninput="filterAD(this)" style="cursor:pointer;">
-    <div class="asgn-dd"></div>
-  </div>
-
-JS (přesná kopie z detail.html):
-  function populateAD(input){...}
-  function renderAD(dd,input){...}
-  function openAD(input){...}
-  function filterAD(input){...}
-  function pickAsgn(opt,name){...}  ← ukládá JEN jméno, backend přeloží na ID
-
-Při odeslání: posílej "assignee": input.value (jméno jako string)
-Backend pak přeloží: GET /project/{id}/workers → najde worker_id podle fullname
-```
-
-### Stav Freelo integrace
-```
-Nastavení tasklist (dropdown)   ✅ Funguje
-Načítání úkolů ze tasklist       ✅ Funguje (GET /tasklist/{id})
-Označit hotový/otevřít           ✅ Funguje (POST /finish, /activate)
-Přidat komentář                  ✅ Funguje
-Načíst komentáře                 ✅ Funguje
-Vytvořit nový úkol               ✅ Funguje (POST /project/{pid}/tasklist/{tlid}/tasks)
-Smazat úkol                      ✅ Funguje
-Editace názvu/deadline            ✅ Funguje (POST /task/{id}) — OVĚŘENO 22.3.2026
-Zodpovědná osoba — editace        ✅ Funguje (POST /task/{id} s worker_id) — OVĚŘENO
-Editace popisu                    ✅ Funguje (POST /task/{id}/description, jen neprázdný!)
-Podúkoly — zobrazení              ✅ Funguje
-Podúkoly — označit hotový         ✅ Opraveno (task_id vs id)
-Vytvořit podúkol                  ✅ Implementováno
-Freelo data v progress reportu    ✅ Splněné úkoly za období
-Freelo kontext v AI reportu       ✅ Předán Claudovi
-Freelo plugin v projekt_detail    ✅ Přidáno 22.3.2026 (stejný jako v zápisech)
-```
-
-### Diagnostické endpointy (pro ladění)
-```
-/api/freelo/debug                          → základní debug (auth, project ID, test /projects)
-/api/freelo/test-ukoly/<tasklist_id>       → testuje URL formáty pro tasklist
-/api/freelo/debug-task/<task_id>           → plná struktura úkolu
-/api/freelo/debug-tasklist/<id>            → plná struktura tasklist
-/api/freelo/debug-state/<task_id>          → testuje PATCH formáty stavu
-/api/freelo/debug-state2/<task_id>         → testuje POST formáty stavu
-/api/freelo/debug-edit/<task_id>           → testuje edit (POST funguje, PUT/PATCH ne)
-/api/freelo/test-create-task/<pid>/<tlid>  → testuje 5 variant vytvoření úkolu
-/api/freelo/test-desc/<pid>/<tlid>         → testuje pole pro popis (všechna ignorována při vytvoření!)
-/api/freelo/test-members/<project_id>      → testuje endpointy pro members
-```
-
-### Historie zjišťování Freelo API (pro kontext — co jsme prošli)
-```
-Sezení 17. 3. 2026:
-- Zjistili jsme že projekt ID 582553 (z URL) ≠ API ID
-- Správné ID projektu CMRC = 501350 (z GET /projects)
-- Auth selhal: jen API klíč nestačí, musí být email + klíč (Basic Auth)
-- Správný endpoint pro vytvoření úkolu: POST /project/{pid}/tasklist/{tlid}/tasks
-  (singulár project/tasklist, plurál tasks — ne /projects/, ne /task bez s)
-- GET /tasklist/{id} funguje, GET /tasklist/{id}/tasks vrací 404
-- Popis nelze přidat při vytvoření — musí se přidat zvlášť POST /task/{id}/description
-- worker_id musí být číslo (integer), endpoint GET /project/{id}/workers (singulár!)
-- Zodpovědná osoba: Martin=236443, Pavel=236444, Markéta=236445, Jakub=236446
-- PHP SDK dokumentace byla ŠPATNĚ (uváděla plurál /projects/ — nefunguje!)
-- Fungující vzor ověřen přímým test endpointem /api/freelo/test-create-task
-
-Sezení 22. 3. 2026:
-- Editace úkolu: POST /task/{id} funguje, PUT i PATCH vrací 404
-- Prázdný popis {"content": ""} vrací 400 — posílat jen neprázdný
-- Zodpovědná osoba: <select> nefunguje (async načítání), použít asgn-wrap vzor
-- Přidán Freelo plugin do projekt_detail.html (identický se zápisem)
+Typografie (Montserrat všude):
+  Nadpisy:  26px, weight 800, uppercase
+  H2:       18px, weight 700
+  Tělo:     13-14px, weight 500
+  Badges:   10-11px, weight 700, letter-spacing 0.08em
 ```
 
 ---
 
-## 🤖 AI funkce
+## 🔑 Railway Variables (povinné)
 
-### Generování zápisů
-- Model: claude-sonnet-4-5
-- 3 šablony: audit / operativa / obchod
-- System prompty editovatelné v Správě → Šablony
-- Sekce se vybírají checkboxy před generováním
-- Každá sekce editovatelná inline + AI úprava
-
-### AI měsíční report (/report/mesicni)
-- Klient + období → Claude shrne všechny zápisy z období
-- Strukturovaný output: executive summary, zjištění, pokrok, rizika, next steps
-- Integruje Freelo data: splněné úkoly za období, otevřené úkoly
-- Tisknutelné do PDF (Ctrl+P)
-- ⚠️ Opravit: chybí timedelta v šabloně → předáváme od_default, do_default stringly
-
----
-
-## ⚙️ Railway env vars
 ```
-DATABASE_URL     PostgreSQL connection string (Railway poskytuje auto)
-SECRET_KEY       Flask session secret
-ANTHROPIC_API_KEY Claude API key
-FREELO_API_KEY   Freelo API key
-FREELO_EMAIL     Freelo přihlašovací email
-FREELO_PROJECT_ID 501350 (legacy, nově se používá dynamicky)
+SECRET_KEY          náhodný string
+DATABASE_URL        postgresql://... (Railway auto-poskytne)
+ANTHROPIC_API_KEY   sk-ant-api03-...
+FREELO_API_KEY      Freelo API klíč
+FREELO_EMAIL        martin.komarek@commarec.cz
+FREELO_PROJECT_ID   501350
 ```
 
 ---
 
-## 🧠 Hodnocení kódu (upřímné — pro dalšího Clauda)
+## 🧠 App factory — jak to funguje
 
-### Funguje dobře ✅
-- Flask architektura správná, SQLAlchemy modely dobře navrženy
-- Brand CSS systém (variables) konzistentní
-- AI prompty dobře strukturované, sekce fungují
-- Freelo push nových úkolů ze zápisů funguje
-- Error stránky 404/500 existují s brand stylem
-- Přehled klientů (prehled.html) je přehledný a funkční
-- Detail klienta — vše na jednom místě, inline edit, Freelo panel
+```python
+# run.py → create_app() → blueprinty → _init_db()
 
-### Otevřené problémy ⚠️
-- **app.py MONOLITH (~3200 řádků)** — každá změna je riziková
-- **Freelo edit úkolů** — stále se hledá správný HTTP verb (POST vs PUT)
-- **Popis úkolu** — lazy load opravován, testovat
-- **Podúkoly finish** — opraveno task_id, ale neotestováno
-- **Zodpovědná osoba** — dropdown funguje, uložení testovat
-- **Email zápisů** — chybí, bylo odstraněno
-- **Mobilní verze** — CSS není responsivní
-- **PDF** — window.print() funguje ale uživatel ukládá ručně
+# POZOR: admin blueprint se registruje jako "admin_bp"
+# protože "admin" by kolidovalo se jménem Flask funkce!
+app.register_blueprint(admin_bp)  # → url_for('admin_bp.admin')
 
-### Technický dluh 🔴 (prioritizovaný)
-1. Freelo edit/finish/zodpovědná osoba — dodokončit a otestovat
-2. Email zápisů klientům (Microsoft 365 SMTP)
-3. Responsivní CSS
-4. app.py blueprinty — rozdělit na moduly
-5. Server-side PDF (WeasyPrint)
+# Jinja2 filtry registrované v create_app():
+fromjson:       lambda s: json.loads(s) if s else {}
+regex_replace:  lambda s, pattern, repl: re.sub(pattern, repl, s)
+```
 
 ---
 
 ## 📊 Aktuální stav funkcí
+
 ```
-Generování zápisů (AI)           ✅ audit/operativa/obchod
-Hlavní přehled (/prehled)        ✅ NOVÝ — klienti, filtry, skóre, delta
-Detail klienta                   ✅ PŘEPRACOVANÝ — vše na jednom místě
-Inline editace klienta           ✅ Jméno, kontakt, IČ, DIČ, poznámky, profil skladu
-Přidání projektu z detailu       ✅ Funguje
-Progress Report                  ✅ + Freelo splněné úkoly za období
-AI Měsíční report                ✅ Funguje, Freelo data integrována
-Nabídky — editace                ✅ DPH number input, step=1, default 21%
-Nabídky — PDF                    ⚠️ window.print() — funguje, layout OK
-Freelo panel v detailu klienta   ⚠️ Základní funkce OK, edit/finish se ladí
-Error stránky (404/500)          ✅ Přidány s brand stylem
-Veřejný zápis (/z/token)         ✅ Existuje
-Email zápisů                     ❌ Chybí
-Mobilní verze                    ❌ CSS není responsivní
-Klientský portál                 ❌ Plánováno
+Generování zápisů (AI)              ✅ audit/operativa/obchod
+Detail klienta                      ✅ info + inline edit + Freelo + zápisy
+Freelo panel v klient_detail        ✅ zobrazení, vytváření, editace, komentáře
+Freelo editace úkolu                ✅ POST /task/{id} OVĚŘENO 22.3.2026
+Freelo zodpovědná osoba             ✅ autocomplete input (ne select!)
+Freelo popis (rich text)            ✅ contenteditable div s toolbar B/I/seznam
+Freelo uzamčený tasklist v zápisech ✅ klient.freelo_tasklist_id
+Přehled /prehled                    ✅ klienti, filtry, skóre s deltou
+Progress report                     ✅ + Freelo splněné úkoly za období
+AI měsíční report                   ✅ Freelo data integrována
+Nabídky                             ✅ editace, PDF (window.print)
+Veřejný zápis (/z/token)            ✅
+
+Role systém (6 rolí)                ✅ 22.3.2026
+Klientský portál /portal            ✅ zápisy + nabídky + Freelo úkoly
+403 stránka                         ✅
+v2 Refactoring (blueprinty)         ✅ syntax OK, url_for opraveny
+
+Email zápisů klientům               ❌ chybí (MS 365 SMTP)
+Responsivní CSS                     ❌ desktop only
+v2 deploy na Railway                ⏳ čeká
 ```
 
 ---
 
-## 🗺 Roadmapa (aktualizovaná)
+## 🗺 Roadmapa
 
-### Ihned (nedodělané z dnešní session)
-1. **Freelo edit** — ověřit správný HTTP verb z `/api/freelo/debug-edit/28782591`
-2. **Freelo popis** — lazy load + POST /description
-3. **Freelo podúkoly finish** — ověřit task_id vs id
+### Priorita 1 — Deploy v2
+1. Vytvořit Railway projekt `commarec-v2`
+2. Napojit `commarec-zapisy-v2` GitHub repozitář
+3. Přidat Variables, ověřit funkčnost
 
-### Fáze A — Stabilizace
-4. **Email zápisů** — zaslat zápis klientovi (Microsoft 365 SMTP)
-5. **Responsivní CSS** — základní mobile breakpoints
+### Priorita 2 — Stabilizace
+4. Email zápisů — MS 365 SMTP
+5. Responsivní CSS — základní breakpoints
+6. Junior role — filtr klientů (vidí jen přiřazené)
 
-### Fáze B — Klientský portál
-6. **Klientský portál** — klient vidí své zápisy, nabídky, stav projektů
-7. **Sdílení nabídky** — link bez přihlášení (jako veřejný zápis)
+### Priorita 3 — Rozšíření portálu
+7. Veřejný odkaz pro nabídku (jako veřejný zápis)
+8. Notifikace klientovi při novém zápisu
 
-### Fáze C — Optimalizace kódu
-8. **app.py blueprinty**
-9. **Testy** — aspoň smoke testy
-
-### Fáze D — Rozšíření
-10. **Analytika** — grafy vývoje skóre přes čas
-11. **Datové analýzy** — upload Excel od klienta, Claude shrne čísla do reportu
+### Priorita 4 — Analytika
+9. Grafy skóre přes čas
+10. Upload Excel → AI shrnutí do reportu
 
 ---
 
 ## 📝 CHANGELOG
 
-### 2026-03-22 — Session odpoledne (Freelo opravy)
+### 2026-03-22 — v2 Refactoring
 
-**Freelo editace úkolu — VYŘEŠENO po 3 hodinách debuggingu:**
-- Přímým testem (`/api/freelo/debug-edit/{id}`) ověřeno: `POST /task/{id}` funguje, PUT/PATCH vrací 404
-- Opravena funkce `api_freelo_task_edit` v app.py: používá POST místo PUT
-- Opravena chyba: prázdný popis (`""`) nesmí být posílán na `/task/{id}/description` → Freelo vrací 400
-- Opravena zodpovědná osoba: backend překládá jméno → worker_id přes GET /project/{id}/workers
+**app.py (4123 řádků) rozdělen do modulů:**
+- `app/__init__.py` — factory, blueprinty, DB init
+- `app/extensions.py` — db, env vars
+- `app/models.py` — modely
+- `app/auth.py` — role, can()
+- `app/config.py` — prompty, konstanty
+- `app/seed.py` — testovací data
+- `app/services/freelo.py` — HTTP helpery
+- `app/services/ai_service.py` — Anthropic
+- `app/routes/` — 8 blueprint souborů
+- `run.py` — vstupní bod
+- Procfile: `gunicorn run:app`
+- Všechny url_for() opraveny s blueprint prefixem
+- Syntax check: ✅ všechny soubory OK
 
-**Zodpovědná osoba v klient_detail — VYŘEŠENO:**
-- Nahrazen `<select>` za text input s autocomplete (přesná kopie z detail.html)
-- CSS: `asgn-wrap`, `asgn-dd`, `asgn-opt` — JS: `openAD`, `filterAD`, `pickAsgn`
-- Select byl prázdný protože `flMembers` se načítá async a select se vyplnil dřív
+### 2026-03-22 — Role systém a klientský portál
 
-**Freelo plugin v projekt_detail:**
-- Starý panel nahrazen plným pluginem (identický se zápisem)
-- Nový endpoint: `POST /api/freelo/projekt/<projekt_id>`
+**6 rolí:**
+- superadmin / admin / konzultant / obchodnik / junior / klient
+- `User.klient_id` — propojení s klientem
+- DB migrace: `klient_id INTEGER REFERENCES klient(id)`
+- `can(action, obj)` — centrální oprávnění
+- `ROLE_PERMISSIONS` — dict
 
-### 2026-03-20 — Session (dokončení Freelo)
-- Zjištěno: Freelo ignoruje description/note/body/content při POST /tasks
-- Popis se MUSÍ přidat zvlášť přes POST /task/{id}/description PO vytvoření
-- Worker_id funguje v POST /tasks payloadu přímo
-- Správný endpoint members: GET /project/{id}/workers (singulár, ne /projects/)
-- Workers struktura: data.workers[].id + data.workers[].fullname
-- Martin Komárek = 236443, Pavel Bezdék = 236444, Markéta Komárek = 236445, Jakub Matějka = 236446
+**Klientský portál:**
+- Standalone `portal.html`
+- Záložky: Zápisy | Nabídky | Úkoly
+- `login_required` → klient → /portal
 
-### 2026-03-17 — Session (Freelo základy)
-- Zjištěno správné API ID projektu CMRC = 501350 (ne 582553 z URL!)
-- Auth: Basic Auth email+API klíč (jen API klíč nestačí, musí být FREELO_EMAIL)
-- Správný endpoint pro vytvoření úkolu: POST /project/{pid}/tasklist/{tlid}/tasks
-  (singulár project/tasklist, plurál tasks — NON-STANDARD!)
-- Nefungující endpointy: /projects/ (plurál), /tasklists/ (plurál), /tasklist/{id}/tasks
-- Vytváření tasklist: POST /project/{pid}/tasklist (singulár)
-- Test endpoint /api/freelo/test-create-task/{pid}/{tlid} potvrdil správný formát
+**Admin UI přepis:**
+- Modální okna (Přidat / Upravit uživatele)
+- Výběr klienta pro roli "klient"
+- Tabulka oprávnění
+- Opraveny: `admin_template_save`, `admin_template_reset`
 
-### 2026-03-22 — Velká session (celý den)
+### 2026-03-22 — Freelo finalizace
 
-**Navigace & UX přestavba:**
-- Navigace zjednodušena ze 7 položek na 3: Přehled | +Nový zápis | AI Report | Správa
-- Nová hlavní stránka `/prehled` — spojuje CRM + dashboard, filtry, skóre s deltou, otevřené úkoly
-- `/home` a `/crm` přesměrovány na `/prehled`
+- Uzamčený tasklist v zápisech (klient.freelo_tasklist_id)
+- Rich text editor pro popis úkolu (contenteditable + toolbar)
+- Nový úkol — pole pro zodpovědnou osobu
 
-**Detail klienta — kompletní přestavba:**
-- Vše na jednom místě: info + inline edit + poznámky (autosave) + profil skladu + projekty + skóre history + otevřené úkoly + chronologie zápisů + nabídky
-- Inline editace: jméno, kontakt, IČ, DIČ, sídlo, poznámky, profil skladu
-- Přidání nového projektu z detailu bez opuštění stránky
-- API: `/api/klient/<id>/upravit`, `/api/klient/<id>/poznamky`, `/api/klient/<id>/profil`
+### 2026-03-22 — Freelo opravy
 
-**Error stránky:**
-- 404.html + 500.html s brand stylem (Navy/Cyan)
-- Flask handlery: `@app.errorhandler(404)`, `@app.errorhandler(500)` + db.session.rollback()
+- `POST /task/{id}` = editace (ne PUT/PATCH — vrací 404!)
+- Prázdný popis neodesílat — Freelo vrací 400
+- `<select>` → text input pro zodpovědnou osobu (async loading)
+- Freelo plugin v projekt_detail.html
 
-**Fonty:**
-- DrukCondensed kompletně odstraněn ze všech 10 šablon
-- Montserrat všude, velikosti sníženy (nadpisy: 26px místo 36px+)
+### 2026-03-20 — Freelo debugging
 
-**AI měsíční report (/report/mesicni):**
-- Nová stránka pro generování měsíčního reportu z zápisů
-- Claude dostane všechny zápisy za období + Freelo splněné/otevřené úkoly
-- Structured JSON output: executive summary, zjištění, pokrok, rizika, next steps, skóre vizualizace
-- Opravena chyba: `timedelta is undefined` → předáváme `od_default`, `do_default`
+- Popis zvlášť přes POST /task/{id}/description
+- worker_id v payloadu POST /tasks
+- GET /project/{id}/workers (singulár funguje, plural 404)
+- Workers: Martin=236443, Pavel=236444, Markéta=236445, Jakub=236446
 
-**Freelo integrace — kompletní přestavba:**
-- Nová architektura: klient → tasklist (statické napojení přes `klient.freelo_tasklist_id`)
-- DB migrace: nový sloupec `klient.freelo_tasklist_id`
-- Kaskádový výběr: Freelo projekt → tasklist → Uložit + možnost vytvořit nový tasklist
-- Opraveno: Freelo API vrací `/tasklist/{id}` (bez /tasks), ne `/tasklists/{id}/tasks`
-- Freelo panel v detailu klienta: zobrazení úkolů (otevřené/hotové/vše), tabs
-- Akce: označit hotový (POST /finish, /activate), přidat komentář, vytvořit úkol, smazat
-- Editace úkolu: název, popis (POST /description), deadline, zodpovědná osoba (dropdown z workers)
-- Podúkoly: zobrazení (GET /subtasks), vytvoření, finish — opraveno task_id vs subtask.id
-- Zodpovědná osoba: dropdown načtený z `/api/freelo/members/{project_id}`
-- Freelo splněné úkoly v progress reportu (za dané období)
-- Freelo data v AI měsíčním reportu (splněné + otevřené úkoly)
-- Diagnostické endpointy pro ladění API
+### 2026-03-17 — Freelo základy
 
-**Opraveno:**
-- Freelo API parsování: `raw.json()` může být list nebo dict — robustní handling všude
-- `'list' object has no attribute 'get'` — opraveno na 5 místech
-- Stav podúkolů: `date_finished != null` = hotový (ne string state)
-- Lazy loading description úkolu při otevření editace
+- API ID CMRC = 501350 (ne 582553 z URL!)
+- Basic Auth: email + API klíč
+- POST /project/{pid}/tasklist/{tlid}/tasks (singulár/singulár/plural)
 
-### 2026-03-21 — Velká session
-- Celý projekt od základů (viz původní CLAUDE.md)
+### 2026-03-21 — Základ aplikace
+
+- Kompletní přestavba z prototypu
+- prehled.html, klient_detail.html, Freelo panel
+- AI měsíční report, progress report
+- Error stránky, veřejné zápisy
 
 ---
 
-## ❓ Zodpovězené otázky
-- **Uživatelé:** celý tým Commarec, desktop only (mobil nízká priorita)
-- **Freelo workflow:** jeden projekt pro všechny klienty, každý klient = jeden tasklist
-- **Email zápisů:** dnes ručně z Outlooku → chceme tlačítko přímo z aplikace
-- **Měsíční report:** dnes Figma/Canva/PPT → cíl: AI report přímo z aplikace
-- **Nabídky:** dnes Excel → v aplikaci základ funguje, PDF chybí server-side
-- **Datové analýzy:** Excel tabulky → výhledově upload + AI shrnutí do reportů
+## ❓ Kontext projektu
+
+```
+Uživatelé:      Tým Commarec 5-10 lidí + klienti přes portál
+Desktop/Mobile: Primárně desktop
+Freelo:         1 projekt pro všechny klienty, každý klient = 1 tasklist
+Email zápisů:   Dnes ručně z Outlooku → chceme tlačítko v aplikaci
+Měsíční report: Funguje v aplikaci (AI)
+Nabídky:        PDF přes window.print(), server-side neplánováno
+v2 vs v1:       v1 = produkce, v2 = nová ostré nasazení
+```
 
 ---
 
-*Poslední aktualizace: 22. 03. 2026 — odpoledne*
-*Verze aplikace: ~1.6 (Freelo editace opravena, plugin v projekt_detail)*
+*Poslední aktualizace: 22. 03. 2026 — večer*
+*Verze: v2.0 — refactored blueprinty + role systém + klientský portál*
