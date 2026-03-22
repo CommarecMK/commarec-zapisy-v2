@@ -1,3 +1,4 @@
+from flask import current_app
 """
 services/ai_service.py — helper funkce pro AI generování zápisů.
 Anthropic API volání, sestavení promptů, extrakce dat z přepisů.
@@ -126,7 +127,7 @@ def condensed_transcript(ai_client, transcript):
     separator = "\n\n[... část přepisu vynechána pro rychlost zpracování ...]\n\n"
     condensed = start + separator + middle + separator + end
 
-    app.logger.info(f"Smart truncation: {len(transcript)} -> {len(condensed)} chars (no API call)")
+    current_app.logger.info(f"Smart truncation: {len(transcript)} -> {len(condensed)} chars (no API call)")
     return condensed
 
 def extract_klient_profil(ai_client, text, existing=None):

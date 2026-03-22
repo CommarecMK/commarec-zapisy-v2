@@ -7,6 +7,8 @@ from ..models import User, Klient, Zapis, Projekt, Nabidka, NabidkaPolozka, Temp
 from ..auth import login_required, admin_required, role_required, get_current_user, can
 from ..config import TEMPLATE_PROMPTS, TEMPLATE_NAMES, TEMPLATE_SECTIONS, SECTION_TITLES
 from ..services.freelo import freelo_get, freelo_post, freelo_patch, freelo_delete, resolve_worker_id, find_project_id_for_tasklist
+from ..services.ai_service import (build_system_prompt, assemble_output_text,
+    condensed_transcript, extract_klient_profil, get_template_prompt)
 import os, json, re, secrets, string
 import anthropic
 import requests
