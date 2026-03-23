@@ -719,46 +719,6 @@ function getNotes() {
 }
 
 // Klient change — prefill fields + load projekty
-async function onKlientChange() {
-  const sel    = document.getElementById('klient-select');
-  const opt    = sel.options[sel.selectedIndex];
-  const kid    = sel.value;
-  const nazev  = opt?.dataset?.nazev  || '';
-  const kontakt= opt?.dataset?.kontakt || '';
-
-  // Prefill client info fields
-  const nameEl    = document.getElementById('client-name');
-  const contactEl = document.getElementById('client-contact');
-  if (nameEl && nazev)    { nameEl.value = nazev;    nameEl.style.borderColor=''; nameEl.style.background=''; }
-  if (contactEl && kontakt) { contactEl.value = kontakt; contactEl.style.borderColor=''; contactEl.style.background=''; }
-
-  // Show info bar
-  const bar = document.getElementById('klient-info-bar');
-  if (kid && nazev) {
-    bar.style.display = 'block';
-    bar.innerHTML = `<strong style="color:#173767;">${nazev}</strong>${kontakt ? ' — ' + kontakt : ''} &nbsp;·&nbsp; <a href="/klient/${kid}" target="_blank" style="color:#00AFF0;font-size:11px;">Otevřít profil klienta →</a>`;
-  } else {
-    bar.style.display = 'none';
-  }
-
-  // Load projekty
-  const psel = document.getElementById('projekt-select');
-  const prow = document.getElementById('projekt-row');
-  if (!kid) {
-    prow.style.display = 'none';
-    psel.innerHTML = '<option value="">— Bez projektu —</option>';
-    return;
-  }
-  prow.style.display = 'block';
-  psel.innerHTML = '<option value="">Načítám...</option>';
-  try {
-    const data = await fetch(`/novy/projekty/${kid}`).then(r=>r.json());
-    psel.innerHTML = '<option value="">— Bez projektu —</option>' +
-      (data.length ? data.map(p => `<option value="${p.id}">${p.nazev}</option>`).join('') : '');
-  } catch(e) {
-    psel.innerHTML = '<option value="">— Bez projektu —</option>';
-  }
-}
 
 // Keep loadProjekty as alias for backward compat
 function loadProjekty() { return onKlientChange(); }

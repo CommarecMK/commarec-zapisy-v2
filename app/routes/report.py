@@ -197,8 +197,9 @@ def api_report_generovat():
     # Delta skóre — rozdíl mezi nejnovějším a předchozím auditem
     delta_blok = ""
     if len(skore_history) >= 2:
-        nejnovejsi = skore_history[0]
-        predchozi = skore_history[1]
+        # skore_history je ASC (nejstarší první) — nejnovější je poslední
+        nejnovejsi = skore_history[-1]
+        predchozi = skore_history[-2]
         try:
             delta = int(nejnovejsi["skore"]) - int(predchozi["skore"])
             delta_str = f"+{delta}" if delta > 0 else str(delta)
@@ -254,8 +255,11 @@ Vrať POUZE JSON (bez markdown backticks) v tomto formátu:
         "od": od_dt.strftime("%d. %m. %Y"),
         "do": do_dt.strftime("%d. %m. %Y"),
         "pocet_zapisu": len(zapisy_data),
-        "ukoly_otevrene": ukoly_otevrene[:20],
-        "ukoly_splnene": ukoly_splnene[:20],
+        # Freelo úkoly (ověřený zdroj) místo tasks_json ze zápisů
+        "ukoly_otevrene": [{"name": u, "deadline": "", "zapis_nazev": "Freelo"} 
+                           for u in freelo_otevrene_ai[:20]],
+        "ukoly_splnene":  [{"name": u, "zapis_nazev": "Freelo"} 
+                           for u in freelo_splnene_ai[:20]],
         "skore_history": skore_history,
         "ai": ai_data,
     })
