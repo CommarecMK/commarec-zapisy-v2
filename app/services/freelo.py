@@ -17,11 +17,12 @@ def freelo_auth():
     return (FREELO_EMAIL, FREELO_API_KEY)
 
 
-def freelo_get(path):
+def freelo_get(path, params=None):
     return requests.get(
         f"{BASE_URL}{path}",
         auth=freelo_auth(),
         headers={"Content-Type": "application/json"},
+        params=params,
         timeout=15,
     )
 

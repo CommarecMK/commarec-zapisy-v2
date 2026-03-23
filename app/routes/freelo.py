@@ -65,7 +65,11 @@ def api_klient_freelo_ukoly(klient_id):
     if not FREELO_API_KEY or not FREELO_EMAIL:
         return jsonify({"ukoly": [], "error": "Chybí FREELO credentials"})
     try:
-        resp = freelo_get(f"/tasklist/{k.freelo_tasklist_id}")
+        # Freelo defaultně nevrací hotové tasky - zkusíme s include_finished
+        resp = freelo_get(f"/tasklist/{k.freelo_tasklist_id}", params={"include_finished": 1})
+        if resp.status_code != 200:
+            # Fallback bez parametru
+            resp = freelo_get(f"/tasklist/{k.freelo_tasklist_id}")
         if resp.status_code != 200:
             return jsonify({"ukoly": [], "error": f"Freelo {resp.status_code}: {resp.text[:200]}"})
         raw2 = resp.json()
@@ -306,14 +310,34 @@ def api_freelo_task_komentare(task_id):
         resp = freelo_get(f"/task/{task_id}/comments")
         if resp.status_code == 200:
             data = resp.json()
-            comments = data if isinstance(data, list) else data.get("data", [])
-            return jsonify({"ok": True, "comments": [{
-                "id": c.get("id"),
-                "content": c.get("content", ""),
-                "author": c.get("author", {}).get("fullname", "") if c.get("author") else "",
-                "created_at": c.get("created_at", ""),
-            } for c in comments]})
-        return jsonify({"ok": False, "comments": []})
+            # Freelo může vrátit: list, {"data": [...]}, {"comments": [...]}, nebo {"data": {"comments": [...]}}
+            if isinstance(data, list):
+                comments = data
+            elif isinstance(data, dict):
+                inner = data.get("data", data)
+                if isinstance(inner, list):
+                    comments = inner
+                elif isinstance(inner, dict):
+                    comments = inner.get("comments", inner.get("items", []))
+                else:
+                    comments = data.get("comments", data.get("items", []))
+            else:
+                comments = []
+            result = []
+            for c in comments:
+                if not isinstance(c, dict): continue
+                author_raw = c.get("author") or c.get("user") or {}
+                author = author_raw.get("fullname", author_raw.get("name", "")) if isinstance(author_raw, dict) else str(author_raw)
+                result.append({
+                    "id": c.get("id"),
+                    "content": c.get("content") or c.get("text") or c.get("body") or "",
+                    "author": author,
+                    "created_at": c.get("created_at") or c.get("date_add", ""),
+                })
+            return jsonify({"ok": True, "comments": result})
+        elif resp.status_code == 404:
+            return jsonify({"ok": True, "comments": []})  # úkol bez komentářů
+        return jsonify({"ok": False, "comments": [], "error": f"Freelo {resp.status_code}"})
     except Exception as e:
         return jsonify({"ok": False, "comments": [], "error": str(e)})
 
@@ -372,7 +396,8 @@ def api_freelo_task_podukoly(task_id):
 @bp.route("/api/klient/<int:klient_id>/freelo-pridat-podukol", methods=["POST"])
 @login_required
 def api_freelo_pridat_podukol(klient_id):
-    """Vytvoří podúkol k existujícímu úkolu - POST /task/{parent_id}/subtasks."""
+    """Vytvoří podúkol k existujícímu úkolu."""
+    k = Klient.query.get_or_404(klient_id)
     data = request.get_json()
     parent_id = data.get("parent_id")
     name = data.get("name", "").strip()
@@ -382,18 +407,33 @@ def api_freelo_pridat_podukol(klient_id):
         payload = {"name": name}
         if data.get("deadline"):
             payload["due_date"] = data["deadline"]
+        # Zodpovědná osoba
+        assignee = data.get("assignee", "").strip()
+        if assignee:
+            worker_id = resolve_worker_id(assignee, k.freelo_tasklist_id)
+            if worker_id:
+                payload["worker_id"] = worker_id
         resp = freelo_post(f"/task/{parent_id}/subtasks", payload)
         if resp.status_code in (200, 201):
-            t = resp.json().get("data", resp.json())
+            t = resp.json()
+            if isinstance(t, dict):
+                t = t.get("data", t)
+            task_id = t.get("id") if isinstance(t, dict) else None
+            # Přidej popis pokud je
+            desc = data.get("description", "").strip()
+            if desc and task_id:
+                freelo_post(f"/task/{task_id}/description", {"content": desc})
             return jsonify({"ok": True, "subtask": {
-                "id": t.get("id"),
+                "id": task_id,
+                "task_id": task_id,
                 "name": name,
                 "state": "open",
                 "deadline": data.get("deadline", ""),
-                "assignee": "",
+                "assignee": assignee,
                 "parent_task_id": parent_id,
+                "url": f"https://app.freelo.io/task/{task_id}",
             }})
-        return jsonify({"error": f"Freelo {resp.status_code}: {resp.text[:200]}"}), 400
+        return jsonify({"error": f"Freelo {resp.status_code}: {resp.text[:300]}"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -734,3 +774,58 @@ def test_freelo_description():
     return jsonify(results)
 
 
+@bp.route("/api/freelo/task/<int:task_id>/detail", methods=["GET"])
+@login_required
+def api_freelo_task_detail(task_id):
+    """Načte detail úkolu včetně description."""
+    try:
+        resp = freelo_get(f"/task/{task_id}")
+        if resp.status_code != 200:
+            return jsonify({"ok": False, "error": f"Freelo {resp.status_code}"})
+        t = resp.json()
+        if isinstance(t, dict) and "data" in t:
+            t = t["data"]
+        # Description: Freelo vrací description nebo komentář s is_description=true
+        description = t.get("description") or t.get("note") or ""
+        if not description:
+            for c in (t.get("comments") or []):
+                if isinstance(c, dict) and c.get("is_description"):
+                    description = c.get("content", "")
+                    break
+        return jsonify({
+            "ok": True,
+            "description": description or "",
+            "worker_id": t.get("worker", {}).get("id") if isinstance(t.get("worker"), dict) else None,
+            "worker_name": t.get("worker", {}).get("fullname", "") if isinstance(t.get("worker"), dict) else "",
+            "deadline": (t.get("due_date") or t.get("due_date_end") or ""),
+            "state": "done" if t.get("date_finished") else "open",
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "description": ""})
+
+@bp.route("/api/freelo/debug-comments/<int:task_id>", methods=["GET"])
+@login_required
+def debug_comments(task_id):
+    """Debug: surová odpověď Freelo pro komentáře."""
+    resp = freelo_get(f"/task/{task_id}/comments")
+    return jsonify({
+        "status": resp.status_code,
+        "raw": resp.text[:2000],
+        "parsed": resp.json() if resp.status_code == 200 else None
+    })
+
+
+@bp.route("/api/freelo/debug-tasklist-raw/<int:tasklist_id>", methods=["GET"])
+@login_required
+def debug_tasklist_raw(tasklist_id):
+    """Debug: surová odpověď tasklist - vidíme stav úkolů."""
+    resp = freelo_get(f"/tasklist/{tasklist_id}", params={"include_finished": 1})
+    data = resp.json() if resp.status_code == 200 else {}
+    tasks = data.get("tasks", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+    return jsonify({
+        "status": resp.status_code,
+        "task_count": len(tasks),
+        "states": [{"id": t.get("id"), "name": t.get("name","")[:30], 
+                    "state": t.get("state"), "date_finished": t.get("date_finished")} 
+                   for t in tasks[:20] if isinstance(t, dict)]
+    })

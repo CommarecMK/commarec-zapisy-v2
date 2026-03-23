@@ -469,14 +469,14 @@
       </div>
 
       <!-- PROFIL SKLADU -->
-      {% if profil %}
       <div class="kd-card">
         <div class="kd-card-head">
           <h2>Profil skladu</h2>
-          <button onclick="toggleProfil()" class="btn btn-secondary btn-sm" id="profil-btn">✎ Upravit</button>
+          <button onclick="toggleProfil()" class="btn btn-secondary btn-sm" id="profil-btn">{% if profil %}✎ Upravit{% else %}+ Přidat{% endif %}</button>
         </div>
         <div class="kd-card-body">
           <div id="profil-read">
+            {% if profil %}
             <div class="profil-grid">
               {% for k2, v in profil.items() if not k2.startswith('_') %}
               <div class="profil-item">
@@ -485,19 +485,41 @@
               </div>
               {% endfor %}
             </div>
+            {% else %}
+            <div style="font-size:13px;color:var(--muted);font-style:italic;padding:4px 0;">Profil skladu není vyplněn. Klikněte na + Přidat nebo vygenerujte zápis — profil se doplní automaticky.</div>
+            {% endif %}
           </div>
           <form id="profil-edit" style="display:none;" onsubmit="saveProfil(event)">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-            {% for k2, v in profil.items() if not k2.startswith('_') %}
-            <div class="edit-field" style="{% if v|length > 40 %}grid-column:1/-1;{% endif %}">
-              <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);display:block;margin-bottom:3px;">{{ k2 | replace('_', ' ') }}</label>
-              {% if v|length > 40 %}
-              <textarea name="{{ k2 }}" rows="2" style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;">{{ v }}</textarea>
-              {% else %}
-              <input name="{{ k2 }}" value="{{ v }}" style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;">
-              {% endif %}
-            </div>
-            {% endfor %}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;" id="profil-fields">
+            {% if profil %}
+              {% for k2, v in profil.items() if not k2.startswith('_') %}
+              <div class="edit-field" style="{% if v|length > 40 %}grid-column:1/-1;{% endif %}">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);display:block;margin-bottom:3px;">{{ k2 | replace('_', ' ') }}</label>
+                {% if v|length > 40 %}
+                <textarea name="{{ k2 }}" rows="2" style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;">{{ v }}</textarea>
+                {% else %}
+                <input name="{{ k2 }}" value="{{ v }}" style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;">
+                {% endif %}
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="edit-field" style="grid-column:1/-1;">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);display:block;margin-bottom:3px;">Typ skladu</label>
+                <input name="typ_skladu" placeholder="např. distribuční, výrobní..." style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;">
+              </div>
+              <div class="edit-field" style="grid-column:1/-1;">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);display:block;margin-bottom:3px;">Hlavní problémy</label>
+                <textarea name="hlavni_problemy" rows="2" placeholder="Popis hlavních problémů..." style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+              </div>
+              <div class="edit-field">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);display:block;margin-bottom:3px;">Počet SKU</label>
+                <input name="pocet_sku" placeholder="např. 5 000" style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;">
+              </div>
+              <div class="edit-field">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);display:block;margin-bottom:3px;">WMS systém</label>
+                <input name="wms_system" placeholder="např. SAP, Helios..." style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;">
+              </div>
+            {% endif %}
             </div>
             <div style="display:flex;gap:8px;margin-top:4px;">
               <button type="submit" class="btn btn-navy btn-sm">Uložit profil</button>
@@ -506,7 +528,6 @@
           </form>
         </div>
       </div>
-      {% endif %}
 
       <!-- PROJEKTY -->
       <div class="kd-card">
@@ -1212,18 +1233,23 @@ async function flToggleEdit(taskId) {
   // Lazy načtení description pokud ještě není
   const descEl = document.getElementById(`fldesc-${taskId}`);
   if (descEl && !descEl.dataset.loaded) {
-    descEl.textContent = 'Načítám popis…';
-    try {
-      const d = await fetch(`/api/freelo/task/${taskId}/detail`).then(r => r.json());
-      if (d.ok) {
-        // contenteditable div — použij innerHTML pro HTML formátování
-        descEl.innerHTML = d.description || '';
-        const task = flAllTasks.find(t => t.id === taskId);
-        if (task) task.description = d.description || '';
+    descEl.dataset.loaded = '1'; // Nastav hned - zabráníme opakování
+    const task = flAllTasks.find(t => t.id === taskId);
+    // Použij description z paměti pokud existuje
+    if (task && task.description) {
+      descEl.innerHTML = task.description;
+    } else {
+      descEl.innerHTML = ''; // Prázdné - žádný loading text
+      try {
+        const d = await fetch(`/api/freelo/task/${taskId}/detail`).then(r => r.json());
+        if (d.ok && d.description) {
+          descEl.innerHTML = d.description;
+          if (task) task.description = d.description;
+        }
+      } catch(e) {
+        // Tiché selhání - editor zůstane prázdný
       }
-    } catch(e) {}
-    descEl.dataset.loaded = '1';
-    if (!descEl.innerHTML.trim()) descEl.innerHTML = '';
+    }
   }
 }
 
