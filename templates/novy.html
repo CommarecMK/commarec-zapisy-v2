@@ -146,6 +146,136 @@ function getNotes() {
 }
 
 // Klient change — prefill fields + load projekty
+/* ══════════════════════════════════════════
+   FREELO KONTEXT — načtení a výběr úkolů
+   ══════════════════════════════════════════ */
+let flKontextTasks = [];
+
+async function loadFreeloKontext(klientId) {
+  if (!klientId) {
+    document.getElementById('freelo-kontext-card').style.display = 'none';
+    return;
+  }
+  const card = document.getElementById('freelo-kontext-card');
+  const loading = document.getElementById('freelo-kontext-loading');
+  const contentEl = document.getElementById('freelo-kontext-content');
+  const emptyEl = document.getElementById('freelo-kontext-empty');
+
+  card.style.display = 'block';
+  loading.style.display = 'block';
+  contentEl.style.display = 'none';
+  emptyEl.style.display = 'none';
+  flKontextTasks = [];
+
+  try {
+    console.log('[Freelo] Načítám kontext pro klienta', klientId);
+    const d = await fetch(`/api/klient/${klientId}/freelo-kontext`).then(r => r.json());
+    console.log('[Freelo] Odpověď:', d);
+    loading.style.display = 'none';
+
+    if (!d.ok || !d.tasks || d.tasks.length === 0) {
+      emptyEl.style.display = 'block';
+      if (d.not_configured) {
+        emptyEl.textContent = 'Klient nemá nastavený Freelo tasklist — nastav ho v detailu klienta.';
+      } else if (d.error) {
+        emptyEl.textContent = 'Chyba načítání Freelo: ' + d.error;
+      } else {
+        emptyEl.textContent = 'Žádné Freelo úkoly k dispozici pro tohoto klienta.';
+      }
+      return;
+    }
+
+    flKontextTasks = d.tasks;
+    const doneTasks = d.tasks.filter(t => t.state === 'done');
+    const openTasks = d.tasks.filter(t => t.state === 'open');
+
+    // Poslední zápis info
+    const badge = document.getElementById('freelo-kontext-badge');
+    if (d.last_zapis_date) {
+      const dt = d.last_zapis_date.slice(0, 10);
+      badge.textContent = `od posledního zápisu: ${dt}`;
+    }
+
+    // Render dokončené
+    const doneSection = document.getElementById('freelo-done-section');
+    const doneList = document.getElementById('freelo-done-list');
+    if (doneTasks.length > 0) {
+      doneSection.style.display = 'block';
+      document.getElementById('freelo-done-count').textContent = doneTasks.length;
+      doneList.innerHTML = doneTasks.map(t => renderFlKTask(t)).join('');
+    }
+
+    // Render aktivní
+    const openSection = document.getElementById('freelo-open-section');
+    const openList = document.getElementById('freelo-open-list');
+    if (openTasks.length > 0) {
+      openSection.style.display = 'block';
+      document.getElementById('freelo-open-count').textContent = openTasks.length;
+      openList.innerHTML = openTasks.map(t => renderFlKTask(t)).join('');
+    }
+
+    contentEl.style.display = 'block';
+  } catch(e) {
+    loading.style.display = 'none';
+    emptyEl.style.display = 'block';
+    emptyEl.textContent = 'Nepodařilo se načíst Freelo úkoly.';
+  }
+}
+
+function renderFlKTask(t) {
+  const hasDetail = t.description || (t.comments && t.comments.length > 0);
+  const meta = [];
+  if (t.assignee) meta.push(`👤 ${t.assignee}`);
+  if (t.deadline) meta.push(`📅 ${t.deadline.slice(0, 10)}`);
+  if (t.date_finished) meta.push(`✓ ${t.date_finished.slice(0, 10)}`);
+  if (t.comments_count > 0) meta.push(`💬 ${t.comments_count}`);
+
+  let detailHtml = '';
+  if (t.description) {
+    const desc = t.description.replace(/<[^>]+>/g, '').slice(0, 200);
+    detailHtml += `<div style="margin-bottom:3px;">${desc}</div>`;
+  }
+  if (t.comments && t.comments.length > 0) {
+    detailHtml += t.comments.slice(0, 3).map(c =>
+      `<div style="color:#4A6080;margin-top:2px;"><strong>${c.author || '?'}:</strong> ${(c.content || '').replace(/<[^>]+>/g, '').slice(0, 120)}</div>`
+    ).join('');
+  }
+
+  return `<div class="fl-k-task ${hasDetail ? 'has-detail' : ''}" onclick="flKontextToggle(this, ${t.id})">
+    <input type="checkbox" data-task-id="${t.id}" onchange="flKontextCheck(this)" onclick="event.stopPropagation()">
+    <div class="fl-k-task-body">
+      <div class="fl-k-task-name">${t.name}</div>
+      ${meta.length ? `<div class="fl-k-task-meta">${meta.join(' · ')}</div>` : ''}
+      ${detailHtml ? `<div class="fl-k-task-desc">${detailHtml}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function flKontextToggle(el, taskId) {
+  const cb = el.querySelector('input[type=checkbox]');
+  cb.checked = !cb.checked;
+  el.classList.toggle('checked', cb.checked);
+}
+
+function flKontextCheck(cb) {
+  cb.closest('.fl-k-task').classList.toggle('checked', cb.checked);
+}
+
+function flKontextVse(val) {
+  document.querySelectorAll('.fl-k-task input[type=checkbox]').forEach(cb => {
+    cb.checked = val;
+    cb.closest('.fl-k-task').classList.toggle('checked', val);
+  });
+}
+
+function getSelectedFreeloKontext() {
+  const selectedIds = new Set();
+  document.querySelectorAll('.fl-k-task input[type=checkbox]:checked').forEach(cb => {
+    selectedIds.add(parseInt(cb.dataset.taskId));
+  });
+  return flKontextTasks.filter(t => selectedIds.has(t.id));
+}
+
 async function onKlientChange() {
   const sel    = document.getElementById('klient-select');
   const opt    = sel.options[sel.selectedIndex];
@@ -478,136 +608,6 @@ function toggleBlock(el, key) {
   else activeBlocks.add(key);
 }
 
-
-/* ══════════════════════════════════════════
-   FREELO KONTEXT — načtení a výběr úkolů
-   ══════════════════════════════════════════ */
-let flKontextTasks = [];
-
-async function loadFreeloKontext(klientId) {
-  if (!klientId) {
-    document.getElementById('freelo-kontext-card').style.display = 'none';
-    return;
-  }
-  const card = document.getElementById('freelo-kontext-card');
-  const loading = document.getElementById('freelo-kontext-loading');
-  const contentEl = document.getElementById('freelo-kontext-content');
-  const emptyEl = document.getElementById('freelo-kontext-empty');
-
-  card.style.display = 'block';
-  loading.style.display = 'block';
-  contentEl.style.display = 'none';
-  emptyEl.style.display = 'none';
-  flKontextTasks = [];
-
-  try {
-    console.log('[Freelo] Načítám kontext pro klienta', klientId);
-    const d = await fetch(`/api/klient/${klientId}/freelo-kontext`).then(r => r.json());
-    console.log('[Freelo] Odpověď:', d);
-    loading.style.display = 'none';
-
-    if (!d.ok || !d.tasks || d.tasks.length === 0) {
-      emptyEl.style.display = 'block';
-      if (d.not_configured) {
-        emptyEl.textContent = 'Klient nemá nastavený Freelo tasklist — nastav ho v detailu klienta.';
-      } else if (d.error) {
-        emptyEl.textContent = 'Chyba načítání Freelo: ' + d.error;
-      } else {
-        emptyEl.textContent = 'Žádné Freelo úkoly k dispozici pro tohoto klienta.';
-      }
-      return;
-    }
-
-    flKontextTasks = d.tasks;
-    const doneTasks = d.tasks.filter(t => t.state === 'done');
-    const openTasks = d.tasks.filter(t => t.state === 'open');
-
-    // Poslední zápis info
-    const badge = document.getElementById('freelo-kontext-badge');
-    if (d.last_zapis_date) {
-      const dt = d.last_zapis_date.slice(0, 10);
-      badge.textContent = `od posledního zápisu: ${dt}`;
-    }
-
-    // Render dokončené
-    const doneSection = document.getElementById('freelo-done-section');
-    const doneList = document.getElementById('freelo-done-list');
-    if (doneTasks.length > 0) {
-      doneSection.style.display = 'block';
-      document.getElementById('freelo-done-count').textContent = doneTasks.length;
-      doneList.innerHTML = doneTasks.map(t => renderFlKTask(t)).join('');
-    }
-
-    // Render aktivní
-    const openSection = document.getElementById('freelo-open-section');
-    const openList = document.getElementById('freelo-open-list');
-    if (openTasks.length > 0) {
-      openSection.style.display = 'block';
-      document.getElementById('freelo-open-count').textContent = openTasks.length;
-      openList.innerHTML = openTasks.map(t => renderFlKTask(t)).join('');
-    }
-
-    contentEl.style.display = 'block';
-  } catch(e) {
-    loading.style.display = 'none';
-    emptyEl.style.display = 'block';
-    emptyEl.textContent = 'Nepodařilo se načíst Freelo úkoly.';
-  }
-}
-
-function renderFlKTask(t) {
-  const hasDetail = t.description || (t.comments && t.comments.length > 0);
-  const meta = [];
-  if (t.assignee) meta.push(`👤 ${t.assignee}`);
-  if (t.deadline) meta.push(`📅 ${t.deadline.slice(0, 10)}`);
-  if (t.date_finished) meta.push(`✓ ${t.date_finished.slice(0, 10)}`);
-  if (t.comments_count > 0) meta.push(`💬 ${t.comments_count}`);
-
-  let detailHtml = '';
-  if (t.description) {
-    const desc = t.description.replace(/<[^>]+>/g, '').slice(0, 200);
-    detailHtml += `<div style="margin-bottom:3px;">${desc}</div>`;
-  }
-  if (t.comments && t.comments.length > 0) {
-    detailHtml += t.comments.slice(0, 3).map(c =>
-      `<div style="color:#4A6080;margin-top:2px;"><strong>${c.author || '?'}:</strong> ${(c.content || '').replace(/<[^>]+>/g, '').slice(0, 120)}</div>`
-    ).join('');
-  }
-
-  return `<div class="fl-k-task ${hasDetail ? 'has-detail' : ''}" onclick="flKontextToggle(this, ${t.id})">
-    <input type="checkbox" data-task-id="${t.id}" onchange="flKontextCheck(this)" onclick="event.stopPropagation()">
-    <div class="fl-k-task-body">
-      <div class="fl-k-task-name">${t.name}</div>
-      ${meta.length ? `<div class="fl-k-task-meta">${meta.join(' · ')}</div>` : ''}
-      ${detailHtml ? `<div class="fl-k-task-desc">${detailHtml}</div>` : ''}
-    </div>
-  </div>`;
-}
-
-function flKontextToggle(el, taskId) {
-  const cb = el.querySelector('input[type=checkbox]');
-  cb.checked = !cb.checked;
-  el.classList.toggle('checked', cb.checked);
-}
-
-function flKontextCheck(cb) {
-  cb.closest('.fl-k-task').classList.toggle('checked', cb.checked);
-}
-
-function flKontextVse(val) {
-  document.querySelectorAll('.fl-k-task input[type=checkbox]').forEach(cb => {
-    cb.checked = val;
-    cb.closest('.fl-k-task').classList.toggle('checked', val);
-  });
-}
-
-function getSelectedFreeloKontext() {
-  const selectedIds = new Set();
-  document.querySelectorAll('.fl-k-task input[type=checkbox]:checked').forEach(cb => {
-    selectedIds.add(parseInt(cb.dataset.taskId));
-  });
-  return flKontextTasks.filter(t => selectedIds.has(t.id));
-}
 
 async function generovat() {
   const text = document.getElementById('input-text').value.trim();
