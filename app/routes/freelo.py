@@ -103,7 +103,9 @@ def api_klient_freelo_ukoly(klient_id):
             # V tasklist: parent_task_id != null = podúkol
             state_raw = t.get("state", {})
             if isinstance(state_raw, dict):
-                is_done = state_raw.get("state") in ("finished", "done") or state_raw.get("id", 1) > 1
+                is_done = (state_raw.get("name", "") in ("finished", "done") or
+                           state_raw.get("state", "") in ("finished", "done") or
+                           state_raw.get("id", 1) > 1)
             else:
                 is_done = str(state_raw).lower() in ("finished", "done", "2", "3")
             ukoly.append({

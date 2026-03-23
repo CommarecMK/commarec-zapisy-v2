@@ -1,5 +1,49 @@
 {% extends "base.html" %}
-{% block title %}{{ k.nazev }}{% endblock %}
+{% block title %}{{ k.nazev }}
+<!-- Modál: Nový podúkol -->
+<div id="modal-podukol" class="fl-modal-bg">
+  <div class="fl-modal-box" style="width:480px;">
+    <div class="fl-modal-title">Nový podúkol</div>
+    <input type="hidden" id="modal-podukol-parent" value="">
+    <div style="display:grid;gap:12px;">
+      <div>
+        <label class="fl-lbl" style="margin-bottom:4px;display:block;">Název *</label>
+        <input id="modal-podukol-name" class="fl-edit-input" placeholder="Název podúkolu…" style="width:100%;">
+      </div>
+      <div>
+        <label class="fl-lbl" style="margin-bottom:4px;display:block;">Popis</label>
+        <div class="fl-rte-wrap">
+          <div class="fl-rte-toolbar">
+            <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('bold')"><strong>B</strong></button>
+            <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('italic')"><em>I</em></button>
+            <div class="fl-rte-sep"></div>
+            <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('insertUnorderedList')">≡</button>
+            <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('insertOrderedList')">1.</button>
+          </div>
+          <div class="fl-rte-editor" id="modal-podukol-desc" contenteditable="true" style="min-height:60px;" placeholder="Popis podúkolu…"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label class="fl-lbl" style="margin-bottom:4px;display:block;">Termín</label>
+          <input id="modal-podukol-deadline" type="date" class="fl-edit-input" style="width:100%;">
+        </div>
+        <div>
+          <label class="fl-lbl" style="margin-bottom:4px;display:block;">Zodpovědná osoba</label>
+          <div class="asgn-wrap">
+            <input id="modal-podukol-assignee" type="text" class="fl-edit-input" placeholder="Vybrat…" autocomplete="off" onfocus="openAD(this)" oninput="filterAD(this)" style="cursor:pointer;width:100%;">
+            <div class="asgn-dd"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="fl-modal-foot">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-podukol').classList.remove('open')">Zrušit</button>
+      <button id="btn-odeslat-podukol" class="btn btn-navy btn-sm" onclick="flOdeslatPodukol()">Přidat podúkol</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -443,9 +487,18 @@
             </div>
           </div>
           <form id="profil-edit" style="display:none;" onsubmit="saveProfil(event)">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
             {% for k2, v in profil.items() if not k2.startswith('_') %}
-            <div class="edit-field"><label>{{ k2 | replace('_', ' ') }}</label><input name="{{ k2 }}" value="{{ v }}"></div>
+            <div class="edit-field" style="{% if v|length > 40 %}grid-column:1/-1;{% endif %}">
+              <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);display:block;margin-bottom:3px;">{{ k2 | replace('_', ' ') }}</label>
+              {% if v|length > 40 %}
+              <textarea name="{{ k2 }}" rows="2" style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;">{{ v }}</textarea>
+              {% else %}
+              <input name="{{ k2 }}" value="{{ v }}" style="width:100%;padding:7px 9px;border:1.5px solid var(--border);border-radius:4px;font-size:13px;">
+              {% endif %}
+            </div>
             {% endfor %}
+            </div>
             <div style="display:flex;gap:8px;margin-top:4px;">
               <button type="submit" class="btn btn-navy btn-sm">Uložit profil</button>
               <button type="button" onclick="toggleProfil()" class="btn btn-secondary btn-sm">Zrušit</button>
@@ -645,7 +698,16 @@
                   <div class="asgn-dd"></div>
                 </div>
               </div>
-              <input id="fl-new-desc" class="fl-edit-input" placeholder="Popis (volitelný)" style="margin-top:6px;width:100%;">
+              <div class="fl-rte-wrap" style="margin-top:6px;" id="fl-new-desc-wrap">
+                <div class="fl-rte-toolbar">
+                  <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('bold')"><strong>B</strong></button>
+                  <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('italic')"><em>I</em></button>
+                  <div class="fl-rte-sep"></div>
+                  <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('insertUnorderedList')">≡</button>
+                  <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('insertOrderedList')">1.</button>
+                </div>
+                <div class="fl-rte-editor" id="fl-new-desc" contenteditable="true" style="min-height:40px;" placeholder="Popis úkolu (volitelný)…"></div>
+              </div>
               <div style="display:flex;gap:6px;margin-top:8px;">
                 <button onclick="flPridatUkol()" class="btn btn-navy btn-sm">Přidat do Freela</button>
                 <button onclick="flNovyUkolToggle()" class="btn btn-secondary btn-sm">Zrušit</button>
@@ -1082,8 +1144,16 @@ function flTaskHTML(t, indent) {
         <div style="font-size:11px;color:var(--muted);padding:4px 0;">Načítám komentáře…</div>
       </div>
       <div class="fl-comment-form">
-        <input class="fl-comment-input" id="flcomm-input-${t.id}" placeholder="Napsat komentář…" onkeydown="if(event.key==='Enter'){event.preventDefault();flPridatKomentar(${t.id});}">
-        <button onclick="flPridatKomentar(${t.id})" class="btn btn-navy btn-sm">Odeslat</button>
+        <div class="fl-rte-wrap fl-comment-rte" style="flex:1;">
+          <div class="fl-rte-toolbar">
+            <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('bold')"><strong>B</strong></button>
+            <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('italic')"><em>I</em></button>
+            <div class="fl-rte-sep"></div>
+            <button class="fl-rte-btn" onmousedown="event.preventDefault();document.execCommand('insertUnorderedList')">≡</button>
+          </div>
+          <div class="fl-rte-editor fl-comment-input" id="flcomm-input-${t.id}" contenteditable="true" placeholder="Napsat komentář…" style="min-height:40px;max-height:120px;"></div>
+        </div>
+        <button onclick="flPridatKomentar(${t.id})" class="btn btn-navy btn-sm" style="align-self:flex-end;">Odeslat</button>
       </div>
     </div>
 
@@ -1212,9 +1282,11 @@ async function flToggleComments(taskId) {
     if (d.ok && d.comments.length) {
       listEl.innerHTML = d.comments.map(c => `
         <div class="fl-comment-item">
-          <span class="fl-comment-author">${flEsc(c.author)}</span>
-          <span class="fl-comment-date">${(c.created_at||'').slice(0,10)}</span>
-          <div class="fl-comment-text">${flEsc(c.content)}</div>
+          <div class="fl-comment-header">
+            <span class="fl-comment-author">${flEsc(c.author)}</span>
+            <span class="fl-comment-date">${(c.created_at||'').slice(0,10)}</span>
+          </div>
+          <div class="fl-comment-text">${c.content || ''}</div>
         </div>`).join('');
     } else if (d.ok) {
       listEl.innerHTML = '<div style="font-size:11px;color:var(--muted);font-style:italic;">Zatím žádné komentáře.</div>';
@@ -1226,31 +1298,31 @@ async function flToggleComments(taskId) {
 
 async function flPridatKomentar(taskId) {
   const input = document.getElementById(`flcomm-input-${taskId}`);
-  const text = input.value.trim();
+  const html = (input.innerHTML || '').trim();
+  const text = (input.innerText || '').trim();
   if (!text) return;
-  input.disabled = true;
+  input.contentEditable = 'false';
   try {
     const d = await fetch(`/api/freelo/task/${taskId}/komentar`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({content: text})
+      body: JSON.stringify({content: html})
     }).then(r => r.json());
     if (d.ok) {
-      input.value = '';
-      // Přidej do listu
+      input.innerHTML = '';
       const listEl = document.getElementById(`flcomm-list-${taskId}`);
-      const newComment = `<div class="fl-comment-item">
-        <span class="fl-comment-author">Já</span>
-        <span class="fl-comment-date">dnes</span>
-        <div class="fl-comment-text">${flEsc(text)}</div>
+      listEl.innerHTML += `<div class="fl-comment-item">
+        <div class="fl-comment-header">
+          <span class="fl-comment-author">Já</span>
+          <span class="fl-comment-date">dnes</span>
+        </div>
+        <div class="fl-comment-text">${html}</div>
       </div>`;
-      listEl.innerHTML += newComment;
-      // Aktualizuj počet
       const task = flAllTasks.find(t => t.id === taskId);
       if (task) task.comments_count = (task.comments_count || 0) + 1;
       toast('Komentář přidán');
     } else { toast(d.error || 'Chyba', false); }
   } catch(e) { toast('Chyba', false); }
-  input.disabled = false;
+  input.contentEditable = 'true';
 }
 
 async function flSmazat(taskId) {
@@ -1297,25 +1369,42 @@ async function flToggleSubtasks(taskId) {
 }
 
 function flNovyPodukol(parentId) {
-  const name = prompt('Název podúkolu:');
-  if (!name || !name.trim()) return;
-  fetch(`/api/klient/${FL_KLIENT_ID}/freelo-pridat-podukol`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({parent_id: parentId, name: name.trim()})
-  }).then(r => r.json()).then(d => {
+  // Nastav parent ID do modálu
+  document.getElementById('modal-podukol-parent').value = parentId;
+  document.getElementById('modal-podukol-name').value = '';
+  document.getElementById('modal-podukol-desc').innerHTML = '';
+  document.getElementById('modal-podukol-deadline').value = '';
+  document.getElementById('modal-podukol-assignee').value = '';
+  const modal = document.getElementById('modal-podukol');
+  modal.classList.add('open');
+  setTimeout(() => document.getElementById('modal-podukol-name').focus(), 50);
+}
+
+async function flOdeslatPodukol() {
+  const parentId = parseInt(document.getElementById('modal-podukol-parent').value);
+  const name = document.getElementById('modal-podukol-name').value.trim();
+  const desc = document.getElementById('modal-podukol-desc').innerHTML.trim();
+  const deadline = document.getElementById('modal-podukol-deadline').value;
+  const assignee = document.getElementById('modal-podukol-assignee').value.trim();
+  if (!name) { toast('Název je povinný', false); return; }
+  const btn = document.getElementById('btn-odeslat-podukol');
+  btn.disabled = true; btn.textContent = 'Přidávám…';
+  try {
+    const d = await fetch(`/api/klient/${FL_KLIENT_ID}/freelo-pridat-podukol`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({parent_id: parentId, name, description: desc, deadline, assignee})
+    }).then(r => r.json());
     if (d.ok) {
       toast('Podúkol přidán ✓');
-      // Otevři / obnov podúkoly
+      document.getElementById('modal-podukol').classList.remove('open');
       const container = document.getElementById(`flsub-${parentId}`);
-      container.style.display = 'none';
-      flToggleSubtasks(parentId);
-      // Aktualizuj count v paměti
+      if (container) { container.style.display = 'none'; flToggleSubtasks(parentId); }
       const task = flAllTasks.find(t => t.id === parentId);
       if (task) task.count_subtasks = (task.count_subtasks || 0) + 1;
       flRenderTasks();
     } else { toast(d.error || 'Chyba', false); }
-  }).catch(e => toast('Chyba: ' + e.message, false));
+  } catch(e) { toast('Chyba: ' + e.message, false); }
+  btn.disabled = false; btn.textContent = 'Přidat podúkol';
 }
 
 function flNovyUkolToggle() {
@@ -1329,7 +1418,7 @@ function flNovyUkolToggle() {
 async function flPridatUkol() {
   const name     = document.getElementById('fl-new-name').value.trim();
   const deadline = document.getElementById('fl-new-deadline').value;
-  const desc     = document.getElementById('fl-new-desc').value.trim();
+  const desc     = document.getElementById('fl-new-desc').innerHTML.trim();
   const assignee = document.getElementById('fl-new-assignee').value.trim();
   if (!name) { toast('Název je povinný', false); return; }
   const btn = document.querySelector('#fl-new-task-form .btn-navy');
@@ -1342,6 +1431,7 @@ async function flPridatUkol() {
     if (d.ok) {
       flAllTasks.unshift(d.task);
       document.getElementById('fl-new-name').value = '';
+    document.getElementById('fl-new-desc').innerHTML = '';
       document.getElementById('fl-new-deadline').value = '';
       document.getElementById('fl-new-desc').value = '';
       document.getElementById('fl-new-assignee').value = '';
