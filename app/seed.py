@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash
 from .extensions import db
 from .models import User, Klient, Zapis, Projekt, Nabidka, NabidkaPolozka
+from .services.ai_service import assemble_output_text
 
 def seed_test_data():
     """Vytvoř testovací data s českou diakritikou."""

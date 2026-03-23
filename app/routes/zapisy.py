@@ -356,3 +356,113 @@ def ulozit_notes(zapis_id):
 # FREELO HELPERS
 # ─────────────────────────────────────────────
 
+def sanitize_summary(summary):
+    """Oprav časté problémy v AI výstupu uloženém v DB."""
+    if not isinstance(summary, dict):
+        return {}
+    cleaned = {}
+    for key, val in summary.items():
+        if not val:
+            cleaned[key] = val
+            continue
+        val = str(val).strip()
+        # JSON array ["x","y"] → <p>x, y</p>
+        if val.startswith('[') and val.endswith(']'):
+            try:
+                items = json.loads(val)
+                if isinstance(items, list):
+                    val = "<p>" + ", ".join(str(i).strip('"') for i in items) + "</p>"
+            except Exception:
+                pass
+        # Markdown bold **text** → <strong>text</strong>
+        import re
+        val = re.sub(r'[*][*](.+?)[*][*]', r'<strong></strong>', val)
+        # Markdown bullet • nebo - na začátku řádku → <li>
+        if '\n' in val and not val.strip().startswith('<'):
+            lines = val.split('\n')
+            html_lines = []
+            in_ul = False
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    if in_ul:
+                        html_lines.append('</ul>')
+                        in_ul = False
+                    continue
+                if line.startswith(('• ', '- ', '* ')):
+                    if not in_ul:
+                        html_lines.append('<ul>')
+                        in_ul = True
+                    html_lines.append(f'<li>{line[2:]}</li>')
+                else:
+                    if in_ul:
+                        html_lines.append('</ul>')
+                        in_ul = False
+                    html_lines.append(f'<p>{line}</p>')
+            if in_ul:
+                html_lines.append('</ul>')
+            val = '\n'.join(html_lines)
+        cleaned[key] = val
+    return cleaned
+
+
+@bp.route("/zapis/<int:zapis_id>")
+@bp.route("/zapis/<int:zapis_id>")
+@login_required
+def detail_zapisu(zapis_id):
+    zapis = Zapis.query.get_or_404(zapis_id)
+    tasks = json.loads(zapis.tasks_json or "[]")
+    notes = json.loads(zapis.notes_json or "[]")
+    try:
+        summary = json.loads(zapis.output_json or "{}")
+    except Exception:
+        summary = {}
+    # Sanitizuj hodnoty — oprav JSON arrays (["x","y"]) → HTML text
+    summary = sanitize_summary(summary)
+
+    # Tasklist klienta — pokud je nastaven, zápis ho použije automaticky (bez dropdownu)
+    klient_tasklist_id = None
+    klient_tasklist_name = None
+    klient_project_name = None
+    if zapis.klient and zapis.klient.freelo_tasklist_id:
+        klient_tasklist_id = zapis.klient.freelo_tasklist_id
+        # Pokus se načíst název tasklist z Freelo
+        try:
+            r = freelo_get(f"/tasklist/{klient_tasklist_id}")
+            if r.status_code == 200:
+                d = r.json()
+                klient_tasklist_name = d.get("name", str(klient_tasklist_id))
+        except Exception:
+            klient_tasklist_name = str(klient_tasklist_id)
+
+    return render_template("detail.html", zapis=zapis, tasks=tasks, notes=notes,
+                           summary=summary, section_titles=SECTION_TITLES,
+                           template_names=TEMPLATE_NAMES,
+                           klient_tasklist_id=klient_tasklist_id,
+                           klient_tasklist_name=klient_tasklist_name,
+                           klient_project_name=klient_project_name)
+
+@bp.route("/zapis/verejny/<token>")
+def zapis_verejny(token):
+    zapis = Zapis.query.filter_by(public_token=token, is_public=True).first_or_404()
+    try:
+        summary = json.loads(zapis.output_json or "{}")
+    except Exception:
+        summary = {}
+    summary = sanitize_summary(summary)
+    return render_template("verejny.html", zapis=zapis, summary=summary,
+                           section_titles=SECTION_TITLES, template_names=TEMPLATE_NAMES)
+
+@bp.route("/api/zapis/<int:zapis_id>/publikovat", methods=["POST"])
+@login_required
+def zapis_publikovat(zapis_id):
+    zapis = Zapis.query.get_or_404(zapis_id)
+    data  = request.json or {}
+    publish = data.get("publish", True)
+    if publish and not zapis.public_token:
+        zapis.public_token = secrets.token_urlsafe(20)
+    zapis.is_public = bool(publish)
+    db.session.commit()
+    url = url_for("zapisy.zapis_verejny", token=zapis.public_token, _external=True) if zapis.is_public else None
+    return jsonify({"ok": True, "is_public": zapis.is_public, "url": url, "token": zapis.public_token})
+
