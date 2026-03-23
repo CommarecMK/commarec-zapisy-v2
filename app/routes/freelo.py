@@ -39,6 +39,29 @@ def get_freelo_tasklists_all():
         return jsonify({"tasklists": [], "error": str(e)})
 
 
+
+def build_ukol(t, is_done, project_id, tasklist_id):
+    """Sestav úkol dict z Freelo task objektu."""
+    worker = t.get("worker") or {}
+    return {
+        "id": t.get("id"),
+        "name": t.get("name", ""),
+        "state": "done" if is_done else "open",
+        "deadline": (t.get("due_date") or t.get("due_date_end") or ""),
+        "assignee": worker.get("fullname", "") if isinstance(worker, dict) else "",
+        "assignee_id": worker.get("id") if isinstance(worker, dict) else None,
+        "comments_count": t.get("count_comments") or t.get("comments_count") or 0,
+        "count_subtasks": t.get("count_subtasks", 0),
+        "description": "",
+        "url": f"https://app.freelo.io/task/{t.get('id')}",
+        "finished_at": t.get("date_finished", ""),
+        "created_at": t.get("date_add", ""),
+        "is_subtask": bool(t.get("parent_task_id")),
+        "parent_task_id": t.get("parent_task_id"),
+        "project_id": project_id,
+        "tasklist_id": tasklist_id,
+    }
+
 @bp.route("/api/klient/<int:klient_id>/freelo-nastavit", methods=["POST"])
 @login_required
 def api_klient_freelo_nastavit(klient_id):
@@ -58,102 +81,75 @@ def api_klient_freelo_nastavit(klient_id):
 @bp.route("/api/klient/<int:klient_id>/freelo-ukoly", methods=["GET"])
 @login_required
 def api_klient_freelo_ukoly(klient_id):
-    """Načte úkoly z Freelo tasklist klienta."""
+    """Načte úkoly z Freelo tasklist klienta.
+    
+    OVĚŘENO 23.3.2026:
+    - GET /tasklist/{id}                → aktivní úkoly (state v odpovědi = null)
+    - GET /tasklist/{id}/finished-tasks → {"data":{"finished_tasks":[...]}} = hotové
+    - include_finished=1 a jiné params → ignorovány Freelem, nefungují
+    """
     k = Klient.query.get_or_404(klient_id)
     if not k.freelo_tasklist_id:
         return jsonify({"ukoly": [], "not_configured": True})
     if not FREELO_API_KEY or not FREELO_EMAIL:
         return jsonify({"ukoly": [], "error": "Chybí FREELO credentials"})
     try:
-        # Načti aktivní úkoly
+        # 1. Načti aktivní úkoly
         resp = freelo_get(f"/tasklist/{k.freelo_tasklist_id}")
         if resp.status_code != 200:
             return jsonify({"ukoly": [], "error": f"Freelo {resp.status_code}: {resp.text[:200]}"})
-        raw2 = resp.json()
-        # Freelo: GET /tasklist/{id} vrací {"id":..., "tasks":[...]}
-        if isinstance(raw2, list):
-            tasks_raw = raw2
-        elif isinstance(raw2, dict):
-            tasks_raw = raw2.get("tasks", raw2.get("data", []))
-        else:
-            tasks_raw = []
+        raw = resp.json()
+        tasks_raw = raw.get("tasks", raw.get("data", [])) if isinstance(raw, dict) else raw
 
-        # Zjisti project_id pro tento tasklist (potřebné pro editaci)
+        # 2. Najdi project_id pro tento tasklist (potřebné pro editaci)
         tasklist_project_id = None
         try:
-            resp_p = freelo_get("/projects")
-            if resp_p.status_code == 200:
-                raw_p = resp_p.json()
-                projects_list = raw_p if isinstance(raw_p, list) else raw_p.get("data", raw_p.get("projects", []))
-                for p in projects_list:
+            rp = freelo_get("/projects")
+            if rp.status_code == 200:
+                plist = rp.json()
+                if not isinstance(plist, list): plist = plist.get("data", [])
+                for p in plist:
                     if not isinstance(p, dict): continue
                     for tl in p.get("tasklists", []):
                         if tl.get("id") == k.freelo_tasklist_id:
                             tasklist_project_id = p.get("id")
                             break
-                    if tasklist_project_id:
-                        break
+                    if tasklist_project_id: break
         except Exception:
             pass
 
-        # Načti hotové úkoly přes project/finished-tasks endpoint
-        finished_ids = set()
+        # 3. Načti hotové úkoly — správný endpoint ověřen 23.3.2026
+        finished_tasks_raw = []
         try:
-            if tasklist_project_id:
-                rf = freelo_get(f"/project/{tasklist_project_id}/finished-tasks")
-                if rf.status_code == 200:
-                    raw_f = rf.json()
-                    fin_list = raw_f if isinstance(raw_f, list) else raw_f.get("data", raw_f.get("tasks", []))
-                    for ft in (fin_list if isinstance(fin_list, list) else []):
-                        if not isinstance(ft, dict): continue
-                        ft_id = ft.get("id")
-                        if ft_id:
-                            finished_ids.add(ft_id)
-                            # Přidej do tasks_raw pokud tam ještě není (jen pro tento tasklist)
-                            ft_tl = ft.get("tasklist_id") or (ft.get("tasklist") or {}).get("id")
-                            if (not ft_tl or str(ft_tl) == str(k.freelo_tasklist_id)):
-                                if not any(t.get("id") == ft_id for t in tasks_raw if isinstance(t, dict)):
-                                    tasks_raw.append(ft)
+            rf = freelo_get(f"/tasklist/{k.freelo_tasklist_id}/finished-tasks")
+            if rf.status_code == 200:
+                rd = rf.json()
+                finished_tasks_raw = rd.get("data", {}).get("finished_tasks", [])
+                if not isinstance(finished_tasks_raw, list):
+                    finished_tasks_raw = []
         except Exception:
             pass
 
+        # 4. Sestav seznam úkolů
         ukoly = []
         for t in tasks_raw:
-            if not isinstance(t, dict):
-                continue
-            # Freelo: state.state="active" = otevřený, state.id>1 nebo date_finished = hotový
-            state_raw = t.get("state", {})
-            if t.get("id") in finished_ids or bool(t.get("date_finished")):
-                is_done = True
-            elif isinstance(state_raw, dict):
-                state_name = state_raw.get("state", state_raw.get("name", ""))
-                is_done = (state_name in ("finished", "done", "closed", "canceled") or
-                           state_raw.get("id", 1) > 1)
-            else:
-                is_done = str(state_raw).lower() in ("finished", "done", "closed", "canceled", "2", "3")
-            ukoly.append({
-                "id": t.get("id"),
-                "name": t.get("name", ""),
-                "state": "done" if (is_done or t.get("date_finished")) else "open",
-                "deadline": (t.get("due_date") or t.get("due_date_end") or ""),
-                "assignee": t.get("worker", {}).get("fullname", "") if t.get("worker") else "",
-                "assignee_id": t.get("worker", {}).get("id") if t.get("worker") else None,
-                "comments_count": t.get("comments_count", 0),
-                "count_subtasks": t.get("count_subtasks", 0),
-                "description": "",
-                "url": f"https://app.freelo.io/task/{t.get('id')}",
-                "finished_at": t.get("date_finished", ""),
-                "created_at": t.get("date_add", ""),
-                "is_subtask": bool(t.get("parent_task_id")),
-                "parent_task_id": t.get("parent_task_id"),
-                "project_id": tasklist_project_id,
-                "tasklist_id": k.freelo_tasklist_id,
-            })
+            if not isinstance(t, dict): continue
+            # Aktivní úkoly — tasklist endpoint nevrací state, předpokládáme open
+            is_done = bool(t.get("date_finished"))
+            ukoly.append(build_ukol(t, is_done, tasklist_project_id, k.freelo_tasklist_id))
+
+        for t in finished_tasks_raw:
+            if not isinstance(t, dict): continue
+            ukoly.append(build_ukol(t, True, tasklist_project_id, k.freelo_tasklist_id))
+
+        # Seřaď: otevřené první, pak hotové; v rámci skupiny podle deadline
         ukoly.sort(key=lambda x: (0 if x["state"] == "open" else 1, x.get("deadline") or "9999"))
-        return jsonify({"ukoly": ukoly, "tasklist_id": k.freelo_tasklist_id})
+
+        open_count = sum(1 for u in ukoly if u["state"] == "open")
+        return jsonify({"ukoly": ukoly, "tasklist_id": k.freelo_tasklist_id, "open_count": open_count})
+
     except Exception as e:
         return jsonify({"ukoly": [], "error": str(e)})
-
 
 @bp.route("/api/klient/<int:klient_id>/freelo-pridat-ukol", methods=["POST"])
 @login_required

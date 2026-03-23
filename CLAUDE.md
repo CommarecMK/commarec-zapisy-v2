@@ -531,3 +531,29 @@ v2 vs v1:       v1 = produkce, v2 = nová ostré nasazení
 
 *Poslední aktualizace: 22. 03. 2026 — večer*
 *Verze: v2.0 — refactored blueprinty + role systém + klientský portál*
+
+
+## ⚠️ Freelo API — ověřená fakta (23.3.2026)
+
+### Hotové úkoly — OVĚŘENO 23.3.2026
+
+```
+SPRÁVNÝ ENDPOINT PRO HOTOVÉ ÚKOLY:
+  GET /tasklist/{id}/finished-tasks
+  → {"total":N, "data": {"finished_tasks": [{...}]}}
+  → hotový úkol: state.id=5, state.state="finished", date_finished != null
+
+AKTIVNÍ ÚKOLY:
+  GET /tasklist/{id} → tasks[] — state pole = null (neznamená nic, jsou aktivní)
+
+CO NEFUNGUJE (nezkoušet):
+  GET /tasklist/{id}?include_finished=1  → ignorováno
+  GET /tasklist/{id}?finished=1          → ignorováno  
+  GET /project/{pid}/finished-tasks      → 404
+  GET /project/{pid}/tasks?finished=1    → 404
+
+PRAVIDLO: Nikdy nehádej Freelo API — vždy testuj přes:
+  /api/freelo/debug-finished-tasks/{tasklist_id}
+  /api/freelo/debug-task-state/{task_id}
+```
+
