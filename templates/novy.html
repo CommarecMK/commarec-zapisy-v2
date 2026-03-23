@@ -150,14 +150,25 @@ async function onKlientChange() {
   const sel    = document.getElementById('klient-select');
   const opt    = sel.options[sel.selectedIndex];
   const kid    = sel.value;
-  const nazev  = opt?.dataset?.nazev  || '';
-  const kontakt= opt?.dataset?.kontakt || '';
-
   // Prefill client info fields
+  const nazev   = opt?.dataset?.nazev   || '';
+  const kontakt = opt?.dataset?.kontakt || '';
+  const adresa  = opt?.dataset?.adresa  || '';
+
   const nameEl    = document.getElementById('client-name');
   const contactEl = document.getElementById('client-contact');
-  if (nameEl && nazev)    { nameEl.value = nazev;    nameEl.style.borderColor=''; nameEl.style.background=''; }
+  const placeEl   = document.getElementById('meeting-place');
+  const dateEl    = document.getElementById('meeting-date');
+
+  if (nameEl)    { nameEl.value = nazev;    nameEl.style.borderColor=''; nameEl.style.background=''; }
   if (contactEl && kontakt) { contactEl.value = kontakt; contactEl.style.borderColor=''; contactEl.style.background=''; }
+  if (placeEl && adresa && !placeEl.value)  { placeEl.value = adresa; }
+  if (dateEl && !dateEl.value) {
+    // Prefill dnešní datum
+    const today = new Date();
+    dateEl.value = today.toISOString().slice(0,10);
+    dateEl.style.borderColor=''; dateEl.style.background='';
+  }
 
   // Show info bar
   const bar = document.getElementById('klient-info-bar');
@@ -194,18 +205,6 @@ async function onKlientChange() {
 function loadProjekty() { return onKlientChange(); }
 
 // Pre-fill klient from URL param
-document.addEventListener('DOMContentLoaded', () => {
-  const url = new URL(window.location.href);
-  const kid = url.searchParams.get('klient_id');
-  const pid = url.searchParams.get('projekt_id');
-  if (kid) {
-    const sel = document.getElementById('klient-select');
-    if (sel) { sel.value = kid; onKlientChange().then(() => { if (pid) { const psel = document.getElementById('projekt-select'); if (psel) psel.value = pid; } }); }
-  }
-  // Auto-fill commarec-rep from session name
-  const repEl = document.getElementById('commarec-rep');
-  if (repEl && !repEl.value) repEl.value = '{{ session.user_name }}';
-});
 
 </script>
 {% endblock %}
@@ -272,7 +271,9 @@ document.addEventListener('DOMContentLoaded', () => {
           {% for k in klienti %}
           <option value="{{ k.id }}"
             data-nazev="{{ k.nazev }}"
-            data-kontakt="{{ k.kontakt }}">{{ k.nazev }}</option>
+            data-kontakt="{{ k.kontakt or '' }}"
+            data-adresa="{{ k.adresa or k.sidlo or '' }}"
+            data-email="{{ k.email or '' }}">{{ k.nazev }}</option>
           {% endfor %}
         </select>
         <a href="{{ url_for('main.klient_novy') }}" target="_blank"
@@ -500,12 +501,20 @@ async function loadFreeloKontext(klientId) {
   flKontextTasks = [];
 
   try {
+    console.log('[Freelo] Načítám kontext pro klienta', klientId);
     const d = await fetch(`/api/klient/${klientId}/freelo-kontext`).then(r => r.json());
+    console.log('[Freelo] Odpověď:', d);
     loading.style.display = 'none';
 
     if (!d.ok || !d.tasks || d.tasks.length === 0) {
       emptyEl.style.display = 'block';
-      if (d.not_configured) emptyEl.textContent = 'Klient nemá nastavený Freelo tasklist.';
+      if (d.not_configured) {
+        emptyEl.textContent = 'Klient nemá nastavený Freelo tasklist — nastav ho v detailu klienta.';
+      } else if (d.error) {
+        emptyEl.textContent = 'Chyba načítání Freelo: ' + d.error;
+      } else {
+        emptyEl.textContent = 'Žádné Freelo úkoly k dispozici pro tohoto klienta.';
+      }
       return;
     }
 
@@ -731,10 +740,24 @@ document.addEventListener('DOMContentLoaded', () => {
   if (kid) {
     const sel = document.getElementById('klient-select');
     if (sel) { sel.value = kid; onKlientChange().then(() => { if (pid) { const psel = document.getElementById('projekt-select'); if (psel) psel.value = pid; } }); }
+  } else {
+    // Klient vybrán bez URL parametru (default v selectu)
+    const sel = document.getElementById('klient-select');
+    if (sel && sel.value) loadFreeloKontext(sel.value);
   }
   // Auto-fill commarec-rep from session name
   const repEl = document.getElementById('commarec-rep');
   if (repEl && !repEl.value) repEl.value = '{{ session.user_name }}';
+
+  // Auto-fill dnešní datum vždy při načtení stránky
+  const dateElInit = document.getElementById('meeting-date');
+  if (dateElInit && !dateElInit.value) {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    dateElInit.value = `${yyyy}-${mm}-${dd}`;
+  }
 });
 
 </script>
