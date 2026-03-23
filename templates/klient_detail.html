@@ -595,23 +595,6 @@
       </div>
       {% endif %}
 
-      <!-- OTEVŘENÉ ÚKOLY -->
-      {% if ukoly_otevrene %}
-      <div class="kd-card">
-        <div class="kd-card-head"><h2>Otevřené úkoly ({{ ukoly_otevrene|length }})</h2></div>
-        <div class="kd-card-body">
-          {% for u in ukoly_otevrene[:8] %}
-          <div class="ukol-row">
-            <div class="ukol-dot"></div>
-            <div>
-              <div class="ukol-name">{{ u.name }}</div>
-              <div class="ukol-meta">{% if u.deadline %}Do: {{ u.deadline }} · {% endif %}<a href="{{ url_for('zapisy.detail_zapisu', zapis_id=u.zapis_id) }}" style="color:var(--cyan);text-decoration:none;">{{ u.zapis_title | truncate(35) }}</a></div>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
 
       <!-- CHRONOLOGIE -->
       <div class="kd-card">
