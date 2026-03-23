@@ -52,8 +52,7 @@ def klient_portal():
     return render_template("portal.html", klient=k, zapisy=zapisy, nabidky=nabidky, ukoly=ukoly)
 
 
-if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+# entry point removed (handled by run.py)
 
 
 # ─────────────────────────────────────────────

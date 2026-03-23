@@ -159,7 +159,7 @@ def save_klient_logo(file_obj, klient_id):
     if size > MAX_LOGO_BYTES:
         return None
     filename = secure_filename(f"klient_{klient_id}_{secrets.token_hex(6)}.{ext}")
-    upload_dir = os.path.join(app.root_path, 'static', 'logos')
+    upload_dir = os.path.join(current_app.root_path, 'static', 'logos')
     os.makedirs(upload_dir, exist_ok=True)
     file_obj.save(os.path.join(upload_dir, filename))
     return f"/static/logos/{filename}"

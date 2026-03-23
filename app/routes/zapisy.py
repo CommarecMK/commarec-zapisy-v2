@@ -271,7 +271,7 @@ Pouzij PRESNE tyto markery, jinak aplikace zapis nezobrazi."""
                         db.session.commit()
                 except Exception as e:
                     current_app.logger.warning(f"BG profile extraction failed: {e}")
-        t = threading.Thread(target=update_profil_bg, args=(app.app_context(), int(klient_id), input_text), daemon=True)
+        t = threading.Thread(target=update_profil_bg, args=(current_app._get_current_object().app_context(), int(klient_id), input_text), daemon=True)
         t.start()
 
     zapis = Zapis(
