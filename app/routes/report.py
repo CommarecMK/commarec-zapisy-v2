@@ -114,33 +114,66 @@ def api_report_generovat():
         return jsonify({"error": "V zadaném období nejsou žádné zápisy pro tohoto klienta."}), 400
 
     # Načti Freelo hotové úkoly za období
-    freelo_splnene_ai = []
-    freelo_otevrene_ai = []
+    freelo_splnene_ai = []   # dokončené v období
+    freelo_otevrene_ai = []  # aktuálně aktivní
+    freelo_splnene_detail = []  # s popisem a komentáři
     if klient.freelo_tasklist_id and FREELO_API_KEY and FREELO_EMAIL:
         try:
+            # Aktivní úkoly
             fr = freelo_get(f"/tasklist/{klient.freelo_tasklist_id}")
             if fr.status_code == 200:
                 raw_ai = fr.json()
-                if isinstance(raw_ai, list):
-                    tasks_raw = raw_ai
-                elif isinstance(raw_ai, dict):
-                    tasks_raw = raw_ai.get("tasks", raw_ai.get("data", []))
-                else:
-                    tasks_raw = []
+                tasks_raw = raw_ai.get("tasks", []) if isinstance(raw_ai, dict) else (raw_ai if isinstance(raw_ai, list) else [])
                 for t in tasks_raw:
-                    if not isinstance(t, dict):
+                    if isinstance(t, dict):
+                        name = t.get("name", "")
+                        assignee = (t.get("worker") or {}).get("fullname", "")
+                        deadline = t.get("due_date", "") or ""
+                        entry = name
+                        if assignee: entry += f" [{assignee}]"
+                        if deadline: entry += f" (termín {deadline[:10]})"
+                        freelo_otevrene_ai.append(entry)
+
+            # Hotové úkoly — správný endpoint (ověřeno 23.3.2026)
+            rf = freelo_get(f"/tasklist/{klient.freelo_tasklist_id}/finished-tasks")
+            if rf.status_code == 200:
+                rd = rf.json()
+                finished = rd.get("data", {}).get("finished_tasks", [])
+                for t in finished:
+                    if not isinstance(t, dict): continue
+                    df = t.get("date_finished", "")
+                    if not df: continue
+                    try:
+                        fin_dt = datetime.fromisoformat(df.replace("Z", "+00:00")).replace(tzinfo=None)
+                        if not (od_dt <= fin_dt <= do_dt + timedelta(days=1)):
+                            continue
+                    except Exception:
                         continue
-                    if t.get("state") == "done":
-                        finished = t.get("finished_at", "")
-                        if finished:
-                            try:
-                                fin_dt = datetime.strptime(finished[:10], "%Y-%m-%d")
-                                if od_dt <= fin_dt <= do_dt + timedelta(days=1):
-                                    freelo_splnene_ai.append(t.get("name", ""))
-                            except Exception:
-                                pass
-                    elif t.get("state") == "open":
-                        freelo_otevrene_ai.append(t.get("name", ""))
+                    name = t.get("name", "")
+                    assignee = (t.get("worker") or {}).get("fullname", "")
+                    entry = f"{name}"
+                    if assignee: entry += f" [{assignee}]"
+                    entry += f" (dokončeno {df[:10]})"
+                    freelo_splnene_ai.append(entry)
+                    # Detail: komentáře
+                    try:
+                        rd2 = freelo_get(f"/task/{t.get('id')}")
+                        if rd2.status_code == 200:
+                            td = rd2.json()
+                            desc = ""
+                            komenty = []
+                            for c in (td.get("comments") or []):
+                                if not isinstance(c, dict): continue
+                                if c.get("is_description"):
+                                    desc = c.get("content", "")
+                                else:
+                                    komenty.append(f"    [{c.get('author',{}).get('fullname','?') if isinstance(c.get('author'),dict) else '?'}]: {c.get('content','')[:150]}")
+                            detail_entry = f"  ✓ {entry}"
+                            if desc: detail_entry += f"\n    Popis: {desc[:300]}"
+                            for k2 in komenty[:3]: detail_entry += f"\n{k2}"
+                            freelo_splnene_detail.append(detail_entry)
+                    except Exception:
+                        freelo_splnene_detail.append(f"  ✓ {entry}")
         except Exception:
             pass
 
@@ -152,18 +185,33 @@ def api_report_generovat():
 
     freelo_blok = ""
     if freelo_splnene_ai:
-        freelo_blok += f"\nSPLNĚNÉ ÚKOLY Z FREELA V OBDOBÍ ({len(freelo_splnene_ai)}):\n"
-        freelo_blok += "\n".join([f"- {u}" for u in freelo_splnene_ai[:20]])
+        freelo_blok += f"\nDOKONČENÉ ÚKOLY V OBDOBÍ ({len(freelo_splnene_ai)}):\n"
+        if freelo_splnene_detail:
+            freelo_blok += "\n".join(freelo_splnene_detail[:20])
+        else:
+            freelo_blok += "\n".join([f"- {u}" for u in freelo_splnene_ai[:20]])
     if freelo_otevrene_ai:
-        freelo_blok += f"\n\nOTEVŘENÉ ÚKOLY VE FREELU ({len(freelo_otevrene_ai)}):\n"
-        freelo_blok += "\n".join([f"- {u}" for u in freelo_otevrene_ai[:10]])
+        freelo_blok += f"\n\nAKTIVNÍ ÚKOLY ({len(freelo_otevrene_ai)}):\n"
+        freelo_blok += "\n".join([f"- {u}" for u in freelo_otevrene_ai[:15]])
+
+    # Delta skóre — rozdíl mezi nejnovějším a předchozím auditem
+    delta_blok = ""
+    if len(skore_history) >= 2:
+        nejnovejsi = skore_history[0]
+        predchozi = skore_history[1]
+        try:
+            delta = int(nejnovejsi["skore"]) - int(predchozi["skore"])
+            delta_str = f"+{delta}" if delta > 0 else str(delta)
+            delta_blok = f"\nDELTA SKÓRE: {delta_str} % (z {predchozi['skore']}% na {nejnovejsi['skore']}% mezi {predchozi['datum']} a {nejnovejsi['datum']})"
+        except Exception:
+            pass
 
     prompt = f"""Jsi konzultant Commarec s.r.o., který píše měsíční report pro klienta.
 
 KLIENT: {klient.nazev}
 OBDOBÍ: {od_dt.strftime('%d. %m. %Y')} — {do_dt.strftime('%d. %m. %Y')}
 POČET ZÁPISŮ V OBDOBÍ: {len(zapisy_data)}
-{'VÝVOJ SKÓRE SKLADU:\n' + skore_blok if skore_blok else ''}
+{'VÝVOJ SKÓRE SKLADU:\n' + skore_blok + (delta_blok if delta_blok else '') if skore_blok else ''}
 {freelo_blok if freelo_blok else ''}
 
 ZÁPISY Z OBDOBÍ:

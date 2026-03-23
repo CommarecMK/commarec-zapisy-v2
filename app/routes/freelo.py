@@ -821,6 +821,115 @@ def api_freelo_task_detail(task_id):
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "description": ""})
 
+
+@bp.route("/api/klient/<int:klient_id>/freelo-kontext", methods=["GET"])
+@login_required
+def api_klient_freelo_kontext(klient_id):
+    """Vrátí Freelo kontext pro generování zápisu:
+    - Aktivní úkoly (s popisem a komentáři)
+    - Hotové úkoly od posledního zápisu
+    - Datum posledního zápisu
+    """
+    from ..models import Zapis
+    from datetime import datetime
+
+    k = Klient.query.get_or_404(klient_id)
+    if not k.freelo_tasklist_id:
+        return jsonify({"ok": True, "tasks": [], "last_zapis_date": None, "not_configured": True})
+
+    # Datum posledního zápisu klienta
+    last_zapis = Zapis.query.filter_by(klient_id=klient_id)        .order_by(Zapis.created_at.desc()).first()
+    last_zapis_date = last_zapis.created_at.isoformat() if last_zapis else None
+    last_zapis_dt = last_zapis.created_at if last_zapis else None
+
+    result_tasks = []
+
+    try:
+        # 1. Aktivní úkoly
+        resp = freelo_get(f"/tasklist/{k.freelo_tasklist_id}")
+        if resp.status_code == 200:
+            raw = resp.json()
+            tasks_raw = raw.get("tasks", []) if isinstance(raw, dict) else raw
+            for t in tasks_raw:
+                if not isinstance(t, dict): continue
+                task = _build_kontext_task(t, "open")
+                result_tasks.append(task)
+
+        # 2. Hotové úkoly — všechny, frontend si je vyfiltruje podle data
+        resp_f = freelo_get(f"/tasklist/{k.freelo_tasklist_id}/finished-tasks")
+        if resp_f.status_code == 200:
+            rd = resp_f.json()
+            finished = rd.get("data", {}).get("finished_tasks", [])
+            for t in finished:
+                if not isinstance(t, dict): continue
+                # Pokud máme datum posledního zápisu, vrátíme jen novější
+                if last_zapis_dt:
+                    df = t.get("date_finished", "")
+                    if df:
+                        try:
+                            df_dt = datetime.fromisoformat(df.replace("Z", "+00:00"))
+                            # Porovnej bez timezone (oba na local time)
+                            if df_dt.replace(tzinfo=None) <= last_zapis_dt:
+                                continue  # Starší než poslední zápis — přeskoč
+                        except Exception:
+                            pass
+                task = _build_kontext_task(t, "done")
+                result_tasks.append(task)
+
+        # 3. Načti komentáře a popis pro každý úkol (paralelně by bylo rychlejší,
+        #    ale pro jednoduchost sekvenčně — max 20 úkolů)
+        for task in result_tasks[:20]:
+            task_id = task["id"]
+            try:
+                rd = freelo_get(f"/task/{task_id}")
+                if rd.status_code == 200:
+                    t_detail = rd.json()
+                    # Popis z is_description komentáře
+                    comments_all = t_detail.get("comments", [])
+                    for c in comments_all:
+                        if isinstance(c, dict) and c.get("is_description"):
+                            task["description"] = c.get("content", "")
+                            break
+                    # Ostatní komentáře
+                    task["comments"] = [
+                        {
+                            "author": (c.get("author") or {}).get("fullname", ""),
+                            "content": c.get("content", ""),
+                            "date": c.get("date_add", "")[:10],
+                        }
+                        for c in comments_all
+                        if isinstance(c, dict) and not c.get("is_description")
+                    ]
+            except Exception:
+                pass
+
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "tasks": []})
+
+    return jsonify({
+        "ok": True,
+        "tasks": result_tasks,
+        "last_zapis_date": last_zapis_date,
+        "last_zapis_title": last_zapis.title if last_zapis else None,
+    })
+
+
+def _build_kontext_task(t, state):
+    """Helper: sestav task dict pro freelo-kontext endpoint."""
+    worker = t.get("worker") or {}
+    return {
+        "id": t.get("id"),
+        "name": t.get("name", ""),
+        "state": state,
+        "deadline": t.get("due_date", "") or "",
+        "assignee": worker.get("fullname", "") if isinstance(worker, dict) else "",
+        "date_finished": t.get("date_finished", ""),
+        "comments_count": t.get("count_comments") or t.get("comments_count") or 0,
+        "description": "",
+        "comments": [],
+        "url": f"https://app.freelo.io/task/{t.get('id')}",
+    }
+
 @bp.route("/api/freelo/debug-comments/<int:task_id>", methods=["GET"])
 @login_required
 def debug_comments(task_id):

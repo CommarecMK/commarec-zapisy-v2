@@ -42,10 +42,11 @@ def generovat():
     blocks      = set(client_info.get("blocks", [
         "uvod","zjisteni","hodnoceni","procesy","rizika","kroky","prinosy","poznamky","dalsi_krok"
     ]))
-    notes_raw      = data.get("notes", [])   # [{title, text}, ...]
-    interni_prompt = data.get("interni_prompt", "").strip()
-    klient_id      = data.get("klient_id")
-    projekt_id     = data.get("projekt_id")
+    notes_raw       = data.get("notes", [])   # [{title, text}, ...]
+    interni_prompt  = data.get("interni_prompt", "").strip()
+    klient_id       = data.get("klient_id")
+    projekt_id      = data.get("projekt_id")
+    freelo_context  = data.get("freelo_context", [])  # [{id, name, state, description, comments, assignee, deadline}]
 
     if not input_text:
         return jsonify({"error": "Prazdny text"}), 400
@@ -98,6 +99,40 @@ Typ schuzky: {TEMPLATE_NAMES.get(template, template)}
 """
     if notes_text:
         user_message += f"\nPOZNAMKY Z TERENU (auditora):\n{notes_text}\n"
+
+    # Přidej Freelo kontext pokud byl vybrán
+    if freelo_context:
+        freelo_lines = []
+        done_tasks = [t for t in freelo_context if t.get("state") == "done"]
+        open_tasks = [t for t in freelo_context if t.get("state") == "open"]
+
+        if done_tasks:
+            freelo_lines.append(f"DOKONČENÉ ÚKOLY OD POSLEDNÍHO ZÁPISU ({len(done_tasks)}):")
+            for t in done_tasks:
+                line = f"  ✓ {t['name']}"
+                if t.get("assignee"): line += f" [{t['assignee']}]"
+                if t.get("date_finished"): line += f" (dokončeno {t['date_finished'][:10]})"
+                freelo_lines.append(line)
+                if t.get("description"):
+                    freelo_lines.append(f"    Popis: {t['description'][:200]}")
+                for c in (t.get("comments") or [])[:3]:
+                    freelo_lines.append(f"    Komentář ({c.get('author','?')}): {c.get('content','')[:150]}")
+
+        if open_tasks:
+            freelo_lines.append(f"\nAKTIVNÍ ÚKOLY ({len(open_tasks)}):")
+            for t in open_tasks:
+                line = f"  → {t['name']}"
+                if t.get("assignee"): line += f" [{t['assignee']}]"
+                if t.get("deadline"): line += f" (termín {t['deadline'][:10]})"
+                freelo_lines.append(line)
+                if t.get("description"):
+                    freelo_lines.append(f"    Popis: {t['description'][:200]}")
+                for c in (t.get("comments") or [])[:2]:
+                    freelo_lines.append(f"    Komentář ({c.get('author','?')}): {c.get('content','')[:150]}")
+
+        if freelo_lines:
+            user_message += f"\n\nFREELO ÚKOLY — STAV A ZMĚNY:\n" + "\n".join(freelo_lines) + "\n"
+            user_message += "\nZapracuj relevantní informace z Freelo úkolů do příslušných sekcí zápisu (zejména kroky, zjištění, rizika).\n"
 
     user_message += f"\nPREPIS / POZNAMKY ZE SCHUZKY:\n{transcript}\n\nVytvor strukturovany JSON zapis. Vrat POUZE validni JSON, zadny jiny text."
 
