@@ -305,42 +305,39 @@ def api_freelo_task_komentar(task_id):
 @bp.route("/api/freelo/task/<int:task_id>/komentare", methods=["GET"])
 @login_required
 def api_freelo_task_komentare(task_id):
-    """Načte komentáře k úkolu."""
+    """Načte komentáře k úkolu. Freelo ukládá popis jako komentář s is_description=true."""
     try:
+        # GET /task/{id}/comments nebo fallback přes GET /task/{id}
         resp = freelo_get(f"/task/{task_id}/comments")
         if resp.status_code == 200:
-            data = resp.json()
-            # Freelo může vrátit: list, {"data": [...]}, {"comments": [...]}, nebo {"data": {"comments": [...]}}
-            if isinstance(data, list):
-                comments = data
-            elif isinstance(data, dict):
-                inner = data.get("data", data)
-                if isinstance(inner, list):
-                    comments = inner
-                elif isinstance(inner, dict):
-                    comments = inner.get("comments", inner.get("items", []))
-                else:
-                    comments = data.get("comments", data.get("items", []))
+            raw = resp.json()
+            if isinstance(raw, list):
+                comments = raw
+            elif isinstance(raw, dict):
+                inner = raw.get("data", raw)
+                comments = inner if isinstance(inner, list) else inner.get("comments", inner.get("items", []))
             else:
                 comments = []
-            result = []
-            for c in comments:
-                if not isinstance(c, dict): continue
-                author_raw = c.get("author") or c.get("user") or {}
-                author = author_raw.get("fullname", author_raw.get("name", "")) if isinstance(author_raw, dict) else str(author_raw)
-                result.append({
-                    "id": c.get("id"),
-                    "content": c.get("content") or c.get("text") or c.get("body") or "",
-                    "author": author,
-                    "created_at": c.get("created_at") or c.get("date_add", ""),
-                })
-            return jsonify({"ok": True, "comments": result})
-        elif resp.status_code == 404:
-            return jsonify({"ok": True, "comments": []})  # úkol bez komentářů
-        return jsonify({"ok": False, "comments": [], "error": f"Freelo {resp.status_code}"})
+        else:
+            # Fallback: komentáře jsou součástí GET /task/{id}
+            resp2 = freelo_get(f"/task/{task_id}")
+            comments = resp2.json().get("comments", []) if resp2.status_code == 200 else []
+
+        result = []
+        for c in comments:
+            if not isinstance(c, dict): continue
+            if c.get("is_description"): continue  # přeskoč popis úkolu
+            author_raw = c.get("author") or c.get("user") or {}
+            author = (author_raw.get("fullname") or author_raw.get("name", "")) if isinstance(author_raw, dict) else str(author_raw)
+            result.append({
+                "id": c.get("id"),
+                "content": c.get("content") or c.get("text") or "",
+                "author": author,
+                "created_at": c.get("created_at") or c.get("date_add", ""),
+            })
+        return jsonify({"ok": True, "comments": result})
     except Exception as e:
         return jsonify({"ok": False, "comments": [], "error": str(e)})
-
 
 
 @bp.route("/api/freelo/task/<int:task_id>/podukoly", methods=["GET"])
@@ -818,14 +815,27 @@ def debug_comments(task_id):
 @bp.route("/api/freelo/debug-tasklist-raw/<int:tasklist_id>", methods=["GET"])
 @login_required
 def debug_tasklist_raw(tasklist_id):
-    """Debug: surová odpověď tasklist - vidíme stav úkolů."""
+    """Debug: surová odpověď tasklist - stav úkolů, popis, komentáře."""
     resp = freelo_get(f"/tasklist/{tasklist_id}", params={"include_finished": 1})
     data = resp.json() if resp.status_code == 200 else {}
     tasks = data.get("tasks", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+    result = []
+    for t in tasks[:10]:
+        if not isinstance(t, dict): continue
+        state_raw = t.get("state", {})
+        state_name = state_raw.get("state", "?") if isinstance(state_raw, dict) else str(state_raw)
+        state_id = state_raw.get("id", "?") if isinstance(state_raw, dict) else "?"
+        result.append({
+            "id": t.get("id"),
+            "name": t.get("name", "")[:40],
+            "state_raw": state_raw,
+            "state_name": state_name,
+            "state_id": state_id,
+            "date_finished": t.get("date_finished"),
+            "is_done_computed": state_name in ("finished","done","closed","canceled") or (isinstance(state_id,int) and state_id > 1) or bool(t.get("date_finished")),
+        })
     return jsonify({
         "status": resp.status_code,
         "task_count": len(tasks),
-        "states": [{"id": t.get("id"), "name": t.get("name","")[:30], 
-                    "state": t.get("state"), "date_finished": t.get("date_finished")} 
-                   for t in tasks[:20] if isinstance(t, dict)]
+        "tasks": result,
     })
