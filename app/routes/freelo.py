@@ -919,5 +919,65 @@ def debug_finished_tasks(tasklist_id):
         "status": r5.status_code,
         "task_count": len(tasks5),
     }
-    
+
+    # 6. Zkus project-level finished tasks (potřebujeme project_id)
+    # Najdi project_id pro tento tasklist
+    project_id = None
+    try:
+        rp = freelo_get("/projects")
+        if rp.status_code == 200:
+            plist = rp.json()
+            if not isinstance(plist, list): plist = plist.get("data", [])
+            for p in plist:
+                if not isinstance(p, dict): continue
+                for tl in p.get("tasklists", []):
+                    if str(tl.get("id")) == str(tasklist_id):
+                        project_id = p.get("id")
+                        break
+                if project_id: break
+    except Exception as e:
+        results["project_lookup_error"] = str(e)
+
+    results["found_project_id"] = project_id
+
+    if project_id:
+        # 6a. GET /project/{pid}/finished-tasks
+        r6a = freelo_get(f"/project/{project_id}/finished-tasks")
+        results["project_finished_tasks"] = {
+            "status": r6a.status_code,
+            "raw": r6a.text[:500]
+        }
+        # 6b. GET /project/{pid}/tasks?finished=1
+        r6b = freelo_get(f"/project/{project_id}/tasks", params={"finished": 1})
+        results["project_tasks_finished_param"] = {
+            "status": r6b.status_code,
+            "raw": r6b.text[:300]
+        }
+
+    # 7. Zkus GET konkrétního hotového tasku — potřebujeme ID
+    # Najdi první task z default a zkus ho označit jako hotový přes /finish
+    # pak znovu načti tasklist
+    results["note"] = "Oznac nejaky ukol jako hotovy ve Freelu a pak reload tuto stranku"
+
     return jsonify(results)
+
+@bp.route("/api/freelo/debug-task-state/<int:task_id>", methods=["GET"])
+@login_required
+def debug_task_state(task_id):
+    """Debug: vrátí kompletní stav úkolu včetně state, date_finished."""
+    resp = freelo_get(f"/task/{task_id}")
+    if resp.status_code != 200:
+        return jsonify({"status": resp.status_code, "error": resp.text[:200]})
+    t = resp.json()
+    return jsonify({
+        "status": resp.status_code,
+        "id": t.get("id"),
+        "name": t.get("name"),
+        "state": t.get("state"),
+        "date_finished": t.get("date_finished"),
+        "is_done_by_date": bool(t.get("date_finished")),
+        "is_done_by_state": (t.get("state") or {}).get("id", 1) > 1 if isinstance(t.get("state"), dict) else False,
+        "worker": t.get("worker"),
+        "tasklist_id": (t.get("tasklist") or {}).get("id"),
+        "raw_state": t.get("state"),
+    })
