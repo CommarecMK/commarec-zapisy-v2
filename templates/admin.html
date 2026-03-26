@@ -85,7 +85,7 @@
         <td>{% if u.is_active %}<span class="badge badge-green">Aktivní</span>{% else %}<span class="badge badge-gray">Neaktivní</span>{% endif %}</td>
         <td style="font-size:12px;color:#4A6080;">{{ u.zapisy|length }}</td>
             <td style="font-size:11px;">
-              {% if u.freelo_email is defined and u.freelo_email and u.freelo_api_key %}
+              {% if u.freelo_email and u.freelo_api_key %}
                 <span style="color:#0A7A5A;">✓ {{ u.freelo_email }}</span>
               {% else %}
                 <span style="color:var(--muted);">globální</span>
@@ -302,11 +302,11 @@
               <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Freelo email</label>
               <input type="email" name="freelo_email" placeholder="vas@email.cz"
                 style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:4px;font-size:12px;"
-                value="{{ u.freelo_email or '' if u.freelo_email is defined else '' }}">
+                value="{{ u.freelo_email or '' }}">
             </div>
             <div>
               <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Freelo API klíč</label>
-              <input type="password" name="freelo_api_key" placeholder="{{ '••••••••' if (u.freelo_api_key is defined and u.freelo_api_key) else 'Nezadán' }}"
+              <input type="password" name="freelo_api_key" placeholder="{{ '••••••••' if u.freelo_api_key else 'Nezadán' }}"
                 style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:4px;font-size:12px;"
                 autocomplete="new-password">
               {% if u.freelo_api_key %}
