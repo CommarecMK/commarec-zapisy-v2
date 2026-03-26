@@ -13,44 +13,68 @@ from ..extensions import FREELO_EMAIL, FREELO_API_KEY
 BASE_URL = "https://api.freelo.io/v1"
 
 
-def freelo_auth():
+def freelo_auth(user=None):
+    """Vrátí (email, api_key) — preferuje credentials uživatele před globálními."""
+    if user and getattr(user, "freelo_email", None) and getattr(user, "freelo_api_key", None):
+        return (user.freelo_email, user.freelo_api_key)
     return (FREELO_EMAIL, FREELO_API_KEY)
 
 
-def freelo_get(path, params=None):
+def _get_current_user():
+    """Vrátí aktuálně přihlášeného uživatele z Flask session."""
+    try:
+        from flask import session
+        from ..models import User
+        uid = session.get("user_id")
+        if uid:
+            return User.query.get(uid)
+    except Exception:
+        pass
+    return None
+
+
+def freelo_get(path, params=None, user=None):
+    if user is None:
+        user = _get_current_user()
     return requests.get(
         f"{BASE_URL}{path}",
-        auth=freelo_auth(),
+        auth=freelo_auth(user),
         headers={"Content-Type": "application/json"},
         params=params,
         timeout=15,
     )
 
 
-def freelo_post(path, payload):
+def freelo_post(path, payload, user=None):
+    if user is None:
+        user = _get_current_user()
     return requests.post(
         f"{BASE_URL}{path}",
-        auth=freelo_auth(),
+        auth=freelo_auth(user),
         headers={"Content-Type": "application/json"},
         json=payload,
         timeout=15,
     )
 
 
-def freelo_patch(path, payload):
+def freelo_patch(path, payload, user=None):
+    if user is None:
+        user = _get_current_user()
     return requests.patch(
         f"{BASE_URL}{path}",
-        auth=freelo_auth(),
+        auth=freelo_auth(user),
         headers={"Content-Type": "application/json"},
         json=payload,
         timeout=15,
     )
 
 
-def freelo_delete(path):
+def freelo_delete(path, user=None):
+    if user is None:
+        user = _get_current_user()
     return requests.delete(
         f"{BASE_URL}{path}",
-        auth=freelo_auth(),
+        auth=freelo_auth(user),
         headers={"Content-Type": "application/json"},
         timeout=15,
     )

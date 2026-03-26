@@ -67,7 +67,7 @@
     <div class="kd-card-head"><h2>Uživatelé ({{ users|length }})</h2></div>
     <table class="user-table">
       <thead>
-        <tr><th>Uživatel</th><th>Role</th><th>Stav</th><th>Zápisy</th><th></th></tr>
+        <tr><th>Uživatel</th><th>Role</th><th>Stav</th><th>Zápisy</th><th>Freelo</th><th></th></tr>
       </thead>
       <tbody>
       {% for u in users %}
@@ -84,6 +84,13 @@
         </td>
         <td>{% if u.is_active %}<span class="badge badge-green">Aktivní</span>{% else %}<span class="badge badge-gray">Neaktivní</span>{% endif %}</td>
         <td style="font-size:12px;color:#4A6080;">{{ u.zapisy|length }}</td>
+            <td style="font-size:11px;">
+              {% if u.freelo_email and u.freelo_api_key %}
+                <span style="color:#0A7A5A;">✓ {{ u.freelo_email }}</span>
+              {% else %}
+                <span style="color:var(--muted);">globální</span>
+              {% endif %}
+            </td>
         <td style="text-align:right;white-space:nowrap;">
           <button onclick="openEditModal({{ u.id }},'{{ u.name|replace("'","\\'") }}','{{ u.email }}','{{ u.role }}',{{ 'true' if u.is_active else 'false' }},{{ u.klient_id or 'null' }})"
             class="btn btn-secondary btn-sm">Upravit</button>
@@ -288,6 +295,31 @@
         <div class="form-field full">
           <label>Nové heslo (ponech prázdné = beze změny)</label>
           <input type="password" name="password" placeholder="••••••••" autocomplete="new-password">
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:8px;">Freelo API (přepíše globální nastavení)</div>
+          <div style="display:grid;gap:6px;">
+            <div>
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Freelo email</label>
+              <input type="email" name="freelo_email" placeholder="vas@email.cz"
+                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:4px;font-size:12px;"
+                value="{{ u.freelo_email or '' }}">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Freelo API klíč</label>
+              <input type="password" name="freelo_api_key" placeholder="{{ '••••••••' if u.freelo_api_key else 'Nezadán' }}"
+                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:4px;font-size:12px;"
+                autocomplete="new-password">
+              {% if u.freelo_api_key %}
+              <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+                <span style="font-size:11px;color:#0A7A5A;">✓ API klíč nastaven</span>
+                <button type="button" onclick="this.closest('form').querySelector('[name=clear_freelo]').value='1';this.textContent='Bude smazán';this.style.color='#C0392B';"
+                  style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0;">Smazat</button>
+                <input type="hidden" name="clear_freelo" value="">
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
         </div>
         <div class="form-field">
           <label>Stav účtu</label>

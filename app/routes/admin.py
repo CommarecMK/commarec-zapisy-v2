@@ -67,6 +67,17 @@ def upravit_uzivatele(user_id):
     user.klient_id = klient_id if user.role == "klient" else None
     if request.form.get("password"):
         user.password_hash = generate_password_hash(request.form["password"])
+    # Freelo API credentials
+    freelo_email = request.form.get("freelo_email", "").strip()
+    freelo_api_key = request.form.get("freelo_api_key", "").strip()
+    if freelo_email:
+        user.freelo_email = freelo_email
+    if freelo_api_key and freelo_api_key != "••••••••":
+        user.freelo_api_key = freelo_api_key
+    # Smazání credentials pokud uživatel odeslal prázdné pole (explicitní vymazání)
+    if request.form.get("clear_freelo"):
+        user.freelo_email = None
+        user.freelo_api_key = None
     db.session.commit()
     return redirect(url_for("admin_bp.admin"))
 

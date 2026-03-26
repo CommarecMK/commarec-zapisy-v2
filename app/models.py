@@ -67,6 +67,9 @@ class User(db.Model):
     # Pro roli "klient" — propojení s klientem v DB
     klient_id     = db.Column(db.Integer, db.ForeignKey("klient.id"), nullable=True)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    # Freelo API credentials per uživatel (override globálních env vars)
+    freelo_email    = db.Column(db.String(120), nullable=True)
+    freelo_api_key  = db.Column(db.String(200), nullable=True)
     zapisy        = db.relationship("Zapis", backref="author", lazy=True, foreign_keys="Zapis.user_id")
     klient_vazba  = db.relationship("Klient", foreign_keys=[klient_id], lazy="joined")
 

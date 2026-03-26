@@ -93,6 +93,8 @@ def _init_db(app):
             ("klient", "sidlo",    "ALTER TABLE klient ADD COLUMN IF NOT EXISTS sidlo VARCHAR(300) DEFAULT ''"),
             ("nabidka_polozka", "dph_pct", "ALTER TABLE nabidka_polozka ADD COLUMN IF NOT EXISTS dph_pct NUMERIC(5,2) DEFAULT 0"),
             ("projekt", "freelo_project_id",  "ALTER TABLE projekt ADD COLUMN IF NOT EXISTS freelo_project_id INTEGER"),
+            ("user", "freelo_email",   "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS freelo_email VARCHAR(120)"),
+            ("user", "freelo_api_key", "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS freelo_api_key VARCHAR(200)"),
             ("projekt", "freelo_tasklist_id", "ALTER TABLE projekt ADD COLUMN IF NOT EXISTS freelo_tasklist_id INTEGER"),
             ("zapis", "output_json",    "ALTER TABLE zapis ADD COLUMN output_json TEXT DEFAULT '{}'"),
             ("zapis", "notes_json",     "ALTER TABLE zapis ADD COLUMN notes_json TEXT DEFAULT '[]'"),
