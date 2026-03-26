@@ -17,6 +17,21 @@ bp = Blueprint("admin_bp", __name__)
 @bp.route("/admin")
 @admin_required
 def admin():
+    # Migrace pro nové sloupce - bezpečné opakované spuštění
+    try:
+        from ..extensions import db
+        with db.engine.connect() as conn:
+            for sql in [
+                'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS freelo_email VARCHAR(120)',
+                'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS freelo_api_key VARCHAR(200)',
+            ]:
+                try:
+                    conn.execute(db.text(sql))
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+    except Exception:
+        pass
     users   = User.query.order_by(User.name).all()
     klienti = Klient.query.order_by(Klient.nazev).all()
     flash   = session.pop("admin_flash", None)

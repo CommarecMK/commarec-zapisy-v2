@@ -84,7 +84,7 @@ def _init_db(app):
     from .config import TEMPLATE_SECTIONS
 
     try:
-        db.create_all()
+        db.create_all(checkfirst=True)
 
         # Auto-migrate nové sloupce
         migrations = [
@@ -125,36 +125,40 @@ def _init_db(app):
             try:
                 db.session.add(User(
                     email="admin@commarec.cz", name="Admin", role="superadmin",
-                    password_hash=generate_password_hash("admin123"), is_admin=True
+                    password_hash=generate_password_hash(
+                        os.environ.get("ADMIN_PASSWORD") or __import__("secrets").token_urlsafe(16)
+                    ), is_admin=True
                 ))
                 db.session.commit()
-                print("Vytvoren vychozi admin: admin@commarec.cz / admin123")
+                pwd_display = os.environ.get("ADMIN_PASSWORD") or "(nahodne - viz log)"
+                print(f"Vytvoren vychozi admin: admin@commarec.cz")
+                if not os.environ.get("ADMIN_PASSWORD"):
+                    print("POZOR: Nastav ADMIN_PASSWORD env var na Railway!")
             except Exception:
                 db.session.rollback()
 
-        # Seed testovacích dat
-        try:
-            seed_test_data()
-        except Exception as e:
-            print(f"Seed error: {e}")
-
-        # Extra demo data
-        try:
-            import importlib.util
-            import os as _os
-            _spec = importlib.util.spec_from_file_location(
-                "seed_extra",
-                _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "seed_extra.py")
-            )
-            _mod = importlib.util.module_from_spec(_spec)
-            _spec.loader.exec_module(_mod)
-            _mod.seed_extra_data(
-                db, Klient, Projekt, Zapis, User,
-                TEMPLATE_SECTIONS, assemble_output_text,
-                generate_password_hash
-            )
-        except Exception as e:
-            print(f"Extra seed error: {e}")
+        # Seed testovacích dat — POUZE pokud ENABLE_SEED=true
+        if os.environ.get("ENABLE_SEED", "").lower() == "true":
+            try:
+                seed_test_data()
+                print("Seed: testovaci data vytvorena")
+            except Exception as e:
+                print(f"Seed error: {e}")
+            try:
+                import importlib.util
+                import os as _os
+                _path = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "seed_extra.py")
+                if _os.path.exists(_path):
+                    _spec = importlib.util.spec_from_file_location("seed_extra", _path)
+                    _mod = importlib.util.module_from_spec(_spec)
+                    _spec.loader.exec_module(_mod)
+                    _mod.seed_extra_data(
+                        db, Klient, Projekt, Zapis, User,
+                        TEMPLATE_SECTIONS, assemble_output_text,
+                        generate_password_hash
+                    )
+            except Exception as e:
+                print(f"Extra seed error: {e}")
 
     except Exception as e:
         print(f"DB init error: {e}")
