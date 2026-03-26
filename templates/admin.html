@@ -302,21 +302,19 @@
               <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Freelo email</label>
               <input type="email" name="freelo_email" placeholder="vas@email.cz"
                 style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:4px;font-size:12px;"
-                value="{{ u.freelo_email or '' }}">
+                value="" id="edit-freelo-email">
             </div>
             <div>
               <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:3px;">Freelo API klíč</label>
-              <input type="password" name="freelo_api_key" placeholder="{{ '••••••••' if u.freelo_api_key else 'Nezadán' }}"
+              <input type="password" name="freelo_api_key" placeholder="Nezadán" id="edit-freelo-api-key"
                 style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:4px;font-size:12px;"
                 autocomplete="new-password">
-              {% if u.freelo_api_key %}
-              <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+              <div id="edit-freelo-status" style="display:none;"><div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
                 <span style="font-size:11px;color:#0A7A5A;">✓ API klíč nastaven</span>
                 <button type="button" onclick="this.closest('form').querySelector('[name=clear_freelo]').value='1';this.textContent='Bude smazán';this.style.color='#C0392B';"
                   style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;padding:0;">Smazat</button>
                 <input type="hidden" name="clear_freelo" value="">
-              </div>
-              {% endif %}
+              </div></div>
             </div>
           </div>
         </div>
@@ -360,7 +358,7 @@ function onRoleChange(prefix) {
 // Init desc on load
 onRoleChange('new');
 
-function openEditModal(id, name, email, role, isActive, klientId) {
+function openEditModal(id, name, email, role, isActive, klientId, freeloEmail, freeloHasKey) {
   document.getElementById('edit-name').value = name;
   document.getElementById('edit-email-display').value = email;
   document.getElementById('edit-role').value = role;
@@ -371,6 +369,13 @@ function openEditModal(id, name, email, role, isActive, klientId) {
   const klientSel = document.getElementById('edit-klient-select');
   klientSel.value = klientId || '';
   document.getElementById('edit-role-desc').innerHTML = ROLE_DESCS[role] || '';
+  // Freelo pole
+  const flEmail = document.getElementById('edit-freelo-email');
+  const flKey = document.getElementById('edit-freelo-api-key');
+  const flStatus = document.getElementById('edit-freelo-status');
+  if (flEmail) flEmail.value = freeloEmail || '';
+  if (flKey) { flKey.value = ''; flKey.placeholder = freeloHasKey ? '••••••••' : 'Nezadán'; }
+  if (flStatus) flStatus.style.display = freeloHasKey ? 'flex' : 'none';
   document.getElementById('modal-upravit').classList.add('open');
 }
 
