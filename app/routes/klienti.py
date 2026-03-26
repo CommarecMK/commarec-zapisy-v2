@@ -161,6 +161,22 @@ def api_klient_upravit(klient_id):
         return jsonify({"error": str(e)}), 500
 
 
+@bp.route("/api/klient/<int:klient_id>/info", methods=["GET"])
+@login_required
+def api_klient_info(klient_id):
+    """Vrátí základní info o klientovi pro prefill formulářů."""
+    k = Klient.query.get_or_404(klient_id)
+    return jsonify({
+        "id": k.id,
+        "nazev": k.nazev or "",
+        "kontakt": k.kontakt or "",
+        "email": k.email or "",
+        "telefon": k.telefon or "",
+        "adresa": k.adresa or "",
+        "sidlo": k.sidlo or "",
+    })
+
+
 @bp.route("/projekt/novy", methods=["POST"])
 @login_required
 def projekt_novy():

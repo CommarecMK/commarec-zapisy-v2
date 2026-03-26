@@ -280,8 +280,8 @@ async function onKlientChange() {
   const sel    = document.getElementById('klient-select');
   const opt    = sel.options[sel.selectedIndex];
   const kid    = sel.value;
-  // Prefill client info fields
-  const nazev   = opt?.dataset?.nazev   || '';
+  // Prefill client info fields - z data atributů nebo API fallback
+  const nazev   = opt?.dataset?.nazev   || opt?.text?.trim() || '';
   const kontakt = opt?.dataset?.kontakt || '';
   const adresa  = opt?.dataset?.adresa  || '';
 
@@ -290,14 +290,31 @@ async function onKlientChange() {
   const placeEl   = document.getElementById('meeting-place');
   const dateEl    = document.getElementById('meeting-date');
 
-  if (nameEl)    { nameEl.value = nazev;    nameEl.style.borderColor=''; nameEl.style.background=''; }
-  if (contactEl && kontakt) { contactEl.value = kontakt; contactEl.style.borderColor=''; contactEl.style.background=''; }
-  if (placeEl && adresa && !placeEl.value)  { placeEl.value = adresa; }
+  // Vždy nastav datum pokud není vyplněno
   if (dateEl && !dateEl.value) {
-    // Prefill dnešní datum
     const today = new Date();
-    dateEl.value = today.toISOString().slice(0,10);
-    dateEl.style.borderColor=''; dateEl.style.background='';
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth()+1).padStart(2,'0');
+    const dd = String(today.getDate()).padStart(2,'0');
+    dateEl.value = `${yyyy}-${mm}-${dd}`;
+  }
+
+  if (kid) {
+    // Pokud máme data z option, použij je
+    if (nazev && nameEl) { nameEl.value = nazev; nameEl.style.borderColor=''; nameEl.style.background=''; }
+    if (kontakt && contactEl) { contactEl.value = kontakt; contactEl.style.borderColor=''; contactEl.style.background=''; }
+    if (adresa && placeEl && !placeEl.value) { placeEl.value = adresa; }
+
+    // Fallback: načti info klienta z API pokud pole jsou stále prázdná
+    if ((!nameEl?.value || !kontakt) && kid) {
+      fetch(`/api/klient/${kid}/info`).then(r => r.ok ? r.json() : null).then(d => {
+        if (!d) return;
+        const k = d.klient || d;
+        if (nameEl && !nameEl.value && k.nazev) { nameEl.value = k.nazev; nameEl.style.borderColor=''; nameEl.style.background=''; }
+        if (contactEl && !contactEl.value && k.kontakt) { contactEl.value = k.kontakt; contactEl.style.borderColor=''; contactEl.style.background=''; }
+        if (placeEl && !placeEl.value && (k.adresa || k.sidlo)) { placeEl.value = k.adresa || k.sidlo; }
+      }).catch(() => {});
+    }
   }
 
   // Show info bar
