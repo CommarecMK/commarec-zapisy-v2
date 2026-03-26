@@ -134,7 +134,7 @@ Typ schuzky: {TEMPLATE_NAMES.get(template, template)}
             user_message += f"\n\nFREELO ÚKOLY — STAV A ZMĚNY:\n" + "\n".join(freelo_lines) + "\n"
             user_message += "\nZapracuj relevantní informace z Freelo úkolů do příslušných sekcí zápisu (zejména kroky, zjištění, rizika).\n"
 
-    user_message += f"\nPREPIS / POZNAMKY ZE SCHUZKY:\n{transcript}\n\nVytvor strukturovany JSON zapis. Vrat POUZE validni JSON, zadny jiny text."
+    user_message += f"\nPREPIS / POZNAMKY ZE SCHUZKY:\n{transcript}"
 
     system = build_system_prompt(interni_prompt, klient_profil, template)
 
@@ -411,7 +411,7 @@ def sanitize_summary(summary):
                 pass
         # Markdown bold **text** → <strong>text</strong>
         import re
-        val = re.sub(r'[*][*](.+?)[*][*]', r'<strong></strong>', val)
+        val = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', val)
         # Markdown bullet • nebo - na začátku řádku → <li>
         if '\n' in val and not val.strip().startswith('<'):
             lines = val.split('\n')
