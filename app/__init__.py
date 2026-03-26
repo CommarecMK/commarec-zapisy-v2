@@ -84,7 +84,7 @@ def _init_db(app):
     from .config import TEMPLATE_SECTIONS
 
     try:
-        db.create_all(checkfirst=True)
+        db.create_all()  # bezpečné - přeskočí existující tabulky
 
         # Auto-migrate nové sloupce
         migrations = [
