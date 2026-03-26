@@ -528,58 +528,7 @@ def prehled():
 @bp.route("/crm")
 @login_required
 def crm_prehled():
-    klienti = Klient.query.filter_by(is_active=True).order_by(Klient.nazev).all()
-    filtr = request.args.get("filtr", "vse")
-    hledat = request.args.get("q", "").strip()
+    """Přesměrování na /prehled — CRM je sloučeno s přehledem."""
+    from flask import redirect, url_for
+    return redirect(url_for("main.prehled"))
 
-    # Sestav data per klient
-    crm_data = []
-    for k in klienti:
-        if hledat and hledat.lower() not in k.nazev.lower():
-            continue
-        zapisy = Zapis.query.filter_by(klient_id=k.id).order_by(Zapis.created_at.desc()).all()
-        projekty = Projekt.query.filter_by(klient_id=k.id, is_active=True).all()
-        posledni_zapis = zapisy[0] if zapisy else None
-        nabidky = Nabidka.query.filter_by(klient_id=k.id).order_by(Nabidka.created_at.desc()).limit(3).all()
-
-        # Filtr
-        if filtr == "aktivni" and not projekty:
-            continue
-        if filtr == "bez_aktivity" and posledni_zapis:
-            if posledni_zapis.created_at > datetime.utcnow() - timedelta(days=60):
-                continue
-        if filtr == "tento_mesic" and posledni_zapis:
-            if posledni_zapis.created_at < datetime.utcnow() - timedelta(days=30):
-                continue
-
-        # Poslední skóre z auditního zápisu
-        posledni_skore = None
-        for z in zapisy:
-            if z.template == "audit" and z.output_json and z.output_json != "{}":
-                try:
-                    data = json.loads(z.output_json)
-                    ratings = data.get("ratings", "")
-                    import re
-                    m = re.search(r"Celkov[eé][^\\d]*(\\d+)\\s*%", ratings)
-                    if m:
-                        posledni_skore = int(m.group(1))
-                        break
-                except Exception:
-                    pass
-
-        crm_data.append({
-            "klient": k,
-            "zapisy_count": len(zapisy),
-            "projekty": projekty,
-            "posledni_zapis": posledni_zapis,
-            "nabidky": nabidky,
-            "skore": posledni_skore,
-        })
-
-    return render_template("crm.html", crm_data=crm_data, filtr=filtr, hledat=hledat,
-                           template_names=TEMPLATE_NAMES, now=datetime.utcnow())
-
-
-# ─────────────────────────────────────────────
-# NABÍDKY
-# ─────────────────────────────────────────────

@@ -125,7 +125,7 @@
   <!-- ACTION BAR -->
   <div class="action-bar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:10px;">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <a href="{{ url_for('main.crm_prehled') }}" class="btn-crm-action btn-outline-dk" style="font-size:13px;padding:7px 14px;">← CRM</a>
+      <a href="{{ url_for('main.crm_prehled') }}" class="btn-crm-action btn-outline-dk" style="font-size:13px;padding:7px 14px;">← Přehled</a>
       <a href="{{ url_for('klienti.klient_detail', klient_id=n.klient_id) }}" class="btn-crm-action btn-outline-dk" style="font-size:12px;padding:7px 14px;">{{ n.klient.nazev }}</a>
       <span class="stav-badge stav-{{ n.stav }}">{{ {'draft':'Koncept','odeslana':'Odeslaná','prijata':'Přijatá','zamitnuta':'Zamítnutá'}.get(n.stav, n.stav) }}</span>
     </div>
