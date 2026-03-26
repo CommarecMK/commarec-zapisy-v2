@@ -132,7 +132,8 @@ Typ schuzky: {TEMPLATE_NAMES.get(template, template)}
 
         if freelo_lines:
             user_message += f"\n\nFREELO ÚKOLY — STAV A ZMĚNY:\n" + "\n".join(freelo_lines) + "\n"
-            user_message += "\nZapracuj relevantní informace z Freelo úkolů do příslušných sekcí zápisu (zejména kroky, zjištění, rizika).\n"
+            user_message += "\nTyto Freelo úkoly zahrň DO SEKCE ===FREELO_STATUS=== jako přehlednou HTML tabulku.\n"
+            user_message += "Do ostatních sekcí (SUGGESTED_ACTIONS apod.) Freelo úkoly NEDÁVEJ — tam piš pouze nové kroky vycházející z obsahu schůzky.\n"
 
     user_message += f"\nPREPIS / POZNAMKY ZE SCHUZKY:\n{transcript}"
 
@@ -155,6 +156,8 @@ Typ schuzky: {TEMPLATE_NAMES.get(template, template)}
         "participants_commarec", "participants_company", "introduction", "meeting_goal",
         "findings", "ratings", "processes_description", "dangers", "suggested_actions",
         "expected_benefits", "additional_notes", "summary", "tasks",
+        # Freelo status — samostatná sekce pro stav úkolů
+        "freelo_status",
         # Operativa
         "current_state",
         # Obchod

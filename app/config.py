@@ -188,6 +188,7 @@ SECTION_TITLES = {
     "expected_benefits":     "Očekávané přínosy",
     "additional_notes":      "Poznámky z terénu",
     "summary":               "Shrnutí",
+    "freelo_status":         "Stav Freelo úkolů",
     # Operativa
     "current_state":         "Aktuální stav provozu",
     # Obchod

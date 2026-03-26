@@ -51,6 +51,13 @@ obsah...
 obsah...
 ===SUMMARY===
 obsah...
+===FREELO_STATUS===
+Pokud jsou k dispozici Freelo úkoly, vytvoř přehled jako HTML tabulku nebo seznam.
+POVINNÁ STRUKTURA:
+- Hotové úkoly: tabulka s sloupci Úkol | Zodpovědná osoba | Dokončeno
+- Aktivní úkoly: tabulka s sloupci Úkol | Zodpovědná osoba | Termín | Stav
+Pokud žádné Freelo úkoly nejsou k dispozici, tuto sekci vynech úplně.
+KRITICKÉ: Freelo úkoly NESMÍ být součástí jiných sekcí (zejména ne SUGGESTED_ACTIONS).
 ===TASKS===
 UKOL: název
 POPIS: popis
@@ -59,6 +66,7 @@ TERMIN: termín
 
 KRITICKÉ: Výstup nesmí začínat žádným úvodem, JSON, nebo markdown. Pouze ===SEKCE=== markery.
 Nepoužívej emotikony. Obsah sekcí je HTML (ne markdown). Piš česky s diakritikou.
+Freelo úkoly patří VÝHRADNĚ do sekce FREELO_STATUS — nikam jinam.
 """
 
 
