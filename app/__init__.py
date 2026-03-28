@@ -24,7 +24,7 @@ def create_app():
     app.config["SQLALCHEMY_DATABASE_URI"]      = database_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["JSON_AS_ASCII"]                = False
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"]    = {"pool_pre_ping": True}
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"]    = {"pool_pre_ping": True, "pool_size": 2, "max_overflow": 3, "pool_timeout": 10, "pool_recycle": 300}
 
     # ─── Jinja2 filtry ────────────────────────────────────────────────────────
     app.jinja_env.filters["fromjson"]       = lambda s: _json.loads(s) if s else {}
