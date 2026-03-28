@@ -107,7 +107,7 @@ def login():
             session["user_name"] = user.name
             session["is_admin"]  = user.is_admin
             session["user_role"] = user.role
-            return redirect(url_for("main.dashboard"))
+            return redirect(url_for("main.prehled"))
         error = "Nespravny e-mail nebo heslo."
     return render_template("login.html", error=error)
 
