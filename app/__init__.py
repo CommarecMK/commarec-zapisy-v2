@@ -72,9 +72,17 @@ def create_app():
     def server_error(e):
         return render_template("500.html"), 500
 
-    # ─── DB init + migrace ────────────────────────────────────────────────────
-    with app.app_context():
-        _init_db(app)
+    # ─── DB init — spustí se při prvním requestu, neblokuje start ───────────
+    _db_initialized = [False]
+
+    @app.before_request
+    def lazy_init_db():
+        if not _db_initialized[0]:
+            _db_initialized[0] = True
+            try:
+                _init_db(app)
+            except Exception as e:
+                print(f"DB init error: {e}")
 
     return app
 
