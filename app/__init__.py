@@ -72,17 +72,16 @@ def create_app():
     def server_error(e):
         return render_template("500.html"), 500
 
-    # ─── DB init — spustí se při prvním requestu, neblokuje start ───────────
-    _db_initialized = [False]
+    # ─── DB init ─────────────────────────────────────────────────────────────
+    # Spouští se při prvním requestu, ne při startu — aby neblokoval healthcheck
+    _done = [False]
 
     @app.before_request
-    def lazy_init_db():
-        if not _db_initialized[0]:
-            _db_initialized[0] = True
-            try:
+    def init_on_first_request():
+        if not _done[0]:
+            _done[0] = True
+            with app.app_context():
                 _init_db(app)
-            except Exception as e:
-                print(f"DB init error: {e}")
 
     return app
 
