@@ -18,6 +18,14 @@ depends_on = None
 
 
 def upgrade():
+    # Pokud tabulky už existují (produkce), celou migraci přeskočíme.
+    # Na nové/staging DB vytvoříme vše od začátku.
+    bind = op.get_bind()
+    from sqlalchemy import inspect as sa_inspect
+    existing = sa_inspect(bind).get_table_names()
+    if "klient" in existing:
+        return
+
     # ── klient ────────────────────────────────────────────────────────────────
     op.create_table(
         "klient",
