@@ -1,13 +1,11 @@
 """
-extensions.py — sdílené instance (db, migrate) a env proměnné.
+extensions.py — sdílené instance (db) a env proměnné.
 Importuje se všude — nevytváří Flask app.
 """
 import os
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 
 db = SQLAlchemy()
-migrate = Migrate()
 
 # ─── Env proměnné ─────────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")

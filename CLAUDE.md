@@ -1,5 +1,5 @@
 # 🗂 Commarec Zápisy v2 — Handoff dokument pro Claude
-*Aktualizováno: 28. 3. 2026 | Verze: FINAL10*
+*Aktualizováno: 26. 3. 2026 | Verze: FINAL9*
 
 ---
 
@@ -7,24 +7,21 @@
 
 | | |
 |---|---|
-| **Produkce** | https://app.apollopro.io |
-| **Staging** | https://staging.apollopro.io |
-| **Produkce (Railway URL)** | https://web-production-6e134.up.railway.app |
-| **Staging (Railway URL)** | https://web-copy-1-production-f136.up.railway.app |
+| **Live URL** | https://web-production-6e134.up.railway.app |
 | **GitHub** | https://github.com/CommarecMK/commarec-zapisy-v2 |
 | **Login** | admin@commarec.cz / heslo z `ADMIN_PASSWORD` env var |
-| **Railway projekt** | commarec-zapisy-v2 / production |
-| **Aktuální ZIP** | `commarec-v2-FINAL10.zip` |
+| **Railway** | asia-southeast1-eqsg3a, PostgreSQL perzistentní DB |
+| **Aktuální ZIP** | `commarec-v2-FINAL9.zip` |
 
 ---
 
-## 🏗 Architektura aplikace
+## 🏗 Architektura
 
 ```
 run.py                          ← vstupní bod (gunicorn run:app)
 app/
-  __init__.py                   ← app factory, blueprinty, DB init + Flask-Migrate
-  extensions.py                 ← db, migrate, env vars
+  __init__.py                   ← app factory, blueprinty, DB init
+  extensions.py                 ← db, env vars (FREELO_EMAIL, FREELO_API_KEY atd.)
   models.py                     ← DB modely (User, Klient, Projekt, Zapis, Nabidka...)
   auth.py                       ← role systém, ROLE_PERMISSIONS, login_required
   config.py                     ← TEMPLATE_PROMPTS, SECTION_TITLES, TEMPLATE_NAMES
@@ -33,7 +30,7 @@ app/
     freelo.py                   ← HTTP helpery + per-user credentials
     ai_service.py               ← Anthropic volání, FORMAT_INSTRUCTIONS, prompty
   routes/
-    main.py      ← Blueprint "main"      — login, přehled klientů, dashboard zápisů
+    main.py      ← Blueprint "main"      — dashboard, login, přehled klientů
     klienti.py   ← Blueprint "klienti"   — detail klienta, Freelo nastavení
     nabidky.py   ← Blueprint "nabidky"   — nabídky
     zapisy.py    ← Blueprint "zapisy"    — generování zápisů, detail, sekce
@@ -41,130 +38,32 @@ app/
     admin.py     ← Blueprint "admin_bp"  — správa uživatelů, šablon
     report.py    ← Blueprint "report"    — měsíční AI report
     portal.py    ← Blueprint "portal"    — klientský portál
-migrations/                     ← Flask-Migrate / Alembic migrační soubory
-  versions/
-    001_initial.py              ← počáteční schéma (přeskočí pokud tabulky existují)
 templates/                      ← Jinja2 šablony
 static/
   format.js                     ← legacy helper (jen formatZapis)
   detail.js                     ← veškerý JS pro detail zápisu (čistý, testovaný)
 ```
 
-### railway.toml — start command
+### railway.toml
 ```toml
 [deploy]
-startCommand = "flask db upgrade && gunicorn run:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
+startCommand = "gunicorn run:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
 ```
-`flask db upgrade` se spustí při každém deployi — aplikuje nové migrace. Pokud žádné nejsou, nic se nestane.
-
----
-
-## 🌐 Domény a DNS (Active24)
-
-### Nastavené záznamy v apollopro.io
-
-| Typ | Název | Hodnota | Účel |
-|---|---|---|---|
-| CNAME | `app` | `jnd3cvof.up.railway.app` | Produkce |
-| TXT | `_railway-verify.app` | `railway-verify=f695d52afd0d493b7078d924941482b9965706cad367131e512defb37e4a0776` | Ověření produkce |
-| CNAME | `staging` | *(Railway CNAME pro staging)* | Staging |
-| TXT | `_railway-verify.staging` | *(Railway TXT pro staging)* | Ověření stagingu |
-
-### Plánovaná struktura domén
-```
-www.apollopro.io          → budoucí rozcestník pro všechny aplikace
-app.apollopro.io          → Commarec Zápisy v2 (produkce)
-staging.apollopro.io      → Commarec Zápisy v2 (staging/testování)
-xxx.apollopro.io          → další aplikace v budoucnu
-```
-
-**Poznámka k SSL:** Railway generuje certifikát automaticky po ověření DNS. Pokud vidíš "Toto připojení není soukromé", stačí počkat 5–15 minut.
-
----
-
-## 🧪 Staging prostředí
-
-### Architektura
-```
-GitHub repo
-├── branch: main     → Railway "web"         → app.apollopro.io       (ostrá DB, ostrá data)
-└── branch: staging  → Railway "web Copy 1"  → staging.apollopro.io   (testovací DB, seed data)
-```
-
-### Railway služby v projektu
-| Název | Větev | URL | DB |
-|---|---|---|---|
-| `web` | `main` | app.apollopro.io | Produkční PostgreSQL |
-| `web Copy 1` | `staging` | staging.apollopro.io | Staging PostgreSQL (samostatná!) |
-
-### Environment Variables — staging specifické
-```
-DATABASE_URL      = ${{Postgres.DATABASE_URL}}  ← automaticky propojeno Railway
-ENABLE_SEED       = true                         ← POUZE na stagingu!
-SECRET_KEY        = (jiný než produkce)
-ADMIN_PASSWORD    = (testovací heslo)
-```
-
-### Workflow pro nové funkce — krok za krokem
-```
-1. Uprav soubory (v Claude nebo lokálně)
-2. Nahraj ZIP na GitHub → přepni na větev STAGING → nahraj
-3. Railway automaticky deployuje staging
-4. Otestuj na staging.apollopro.io
-5. Funguje? → GitHub → přepni na MAIN → nahraj stejné soubory
-   (nebo použij "Compare & pull request" tlačítko na GitHubu)
-6. Railway automaticky deployuje produkci
-```
-
-### ⚠️ Zlaté pravidlo
-Nikdy nenahrávej přímo do `main` bez předchozího testu na stagingu.
-
----
-
-## 🗃 Flask-Migrate — správa DB schématu
-
-Přidáno v FINAL10 (28. 3. 2026). Nahrazuje ruční `ALTER TABLE` loop v `_init_db`.
-
-### Proč to existuje
-Data (klienti, zápisy, uživatelé) jsou v databázi — GitHub push je nijak neohrožuje. Ale pokud kód očekává nový sloupec v DB a ten tam není, aplikace spadne. Flask-Migrate zajistí, že se schéma databáze aktualizuje bezpečně při každém deployi.
-
-### Příkazy
-```bash
-# Po každé změně models.py — vygeneruje nový migrační soubor
-flask db migrate -m "popis změny (např. add email_sent to zapis)"
-
-# Aplikovat migrace — děje se AUTOMATICKY při každém deployi
-flask db upgrade
-
-# Zkontrolovat stav
-flask db current
-flask db history
-```
-
-### Co dělat po změně models.py
-1. `flask db migrate -m "popis"` — vygeneruje soubor v `migrations/versions/`
-2. Zkontroluj vygenerovaný soubor (Alembic někdy vynechá věci)
-3. `git add migrations/ && git commit` — migrační soubory MUSÍ být v Gitu!
-4. Push na staging → otestuj → push na main
-
-### Jak funguje 001_initial.py
-Na začátku `upgrade()` se zkontroluje: existuje tabulka `klient`? Pokud ano (produkční/existující DB) → přeskočí celou migraci. Pokud ne (nová staging DB) → vytvoří vše od začátku.
 
 ---
 
 ## 🔑 Railway Environment Variables
 
-| Proměnná | Produkce | Staging |
+| Proměnná | Popis | Povinná |
 |---|---|---|
-| `SECRET_KEY` | ✅ nastaveno | ✅ jiné |
-| `DATABASE_URL` | ✅ auto Railway | ✅ `${{Postgres.DATABASE_URL}}` |
-| `ANTHROPIC_API_KEY` | ✅ | ✅ stejné |
-| `FREELO_API_KEY` | ✅ | ✅ stejné |
-| `FREELO_EMAIL` | ✅ | ✅ stejné |
-| `FREELO_PROJECT_ID` | `501350` | `501350` |
-| `ADMIN_PASSWORD` | ✅ | ✅ testovací |
-| `ENABLE_SEED` | ❌ NIKDY | ✅ `true` |
-| `FLASK_DEBUG` | nastaveno | nastaveno |
+| `SECRET_KEY` | Flask session secret | ✅ ANO |
+| `DATABASE_URL` | PostgreSQL URL (Railway auto) | ✅ ANO |
+| `ANTHROPIC_API_KEY` | Claude API klíč | ✅ ANO |
+| `FREELO_API_KEY` | Globální Freelo API klíč | ✅ ANO |
+| `FREELO_EMAIL` | Globální Freelo email | ✅ ANO |
+| `FREELO_PROJECT_ID` | `501350` (API ID, ne URL ID!) | ✅ ANO |
+| `ADMIN_PASSWORD` | Heslo výchozího admina | doporučeno |
+| `ENABLE_SEED` | `true` = spustí demo data | NE (nikdy v produkci) |
 
 ---
 
@@ -183,38 +82,13 @@ Každý uživatel může mít vlastní Freelo email + API klíč (přepíše glo
 
 ---
 
-## 🧭 Navigace a routing
-
-### Horní menu (base.html)
-```
-Přehled      →  /prehled    (přehled klientů se skóre, filtry, projekty)
-Zápisy       →  /dashboard  (seznam všech zápisů s filtry)
-+ Nový zápis →  /novy       (cyan tlačítko)
-AI Report    →  /report
-Správa       →  /admin
-```
-
-### Klíčové routy
-```
-/              → redirect na /prehled (pokud přihlášen) nebo /login
-/login         → přihlašovací formulář → po úspěchu redirect na /prehled
-/prehled       → přehled klientů (Blueprint: main)
-/dashboard     → seznam zápisů (Blueprint: main)
-/klient/{id}   → detail klienta
-/zapis/{id}    → detail zápisu
-/novy          → nový zápis
-/portal        → klientský portál (role: klient)
-```
-
----
-
 ## 🔵 Freelo API — OVĚŘENÁ FAKTA (23. 3. 2026)
 
 ### Fungující endpointy
 ```
 GET  /projects                               → projekty + embedded tasklists
 GET  /tasklist/{id}                          → POUZE aktivní úkoly (state=null = aktivní)
-GET  /tasklist/{id}/finished-tasks           → {"total":N,"data":{"finished_tasks":[...]}}
+GET  /tasklist/{id}/finished-tasks           → {"total":N,"data":{"finished_tasks":[...]}} ✅
 GET  /task/{id}                              → detail + comments[] (popis = is_description:true)
 GET  /task/{id}/subtasks                     → {"data":{"subtasks":[...]}}
 GET  /project/{id}/workers                   → {"data":{"workers":[...]}}
@@ -229,24 +103,26 @@ POST /project/{pid}/tasklists                → nový tasklist
 ```
 PUT/PATCH /task/{id}                         → 404
 GET /tasklist/{id}?include_finished=1        → ignorováno
+GET /tasklist/{id}?finished=1                → ignorováno
 GET /project/{pid}/finished-tasks            → 404
+GET /project/{pid}/tasks?finished=1          → 404
 ```
 
 ### Kritická pravidla
 1. Auth: Basic Auth — username=FREELO_EMAIL, password=FREELO_API_KEY
-2. Project ID 582553 (URL) ≠ 501350 (API ID projektu CMRC) — vždy 501350!
+2. Project ID 582553 (URL) ≠ 501350 (API ID projektu CMRC)
 3. Popis: POST /task/{id}/description ZVLÁŠŤ, prázdný string = 400
 4. Hotový úkol: `state.id=5`, `state.state="finished"`, `date_finished != null`
-5. Aktivní úkol: `state=null` v tasklist odpovědi
+5. Aktivní úkol: `state=null` v tasklist odpovědi (state se v /tasklist nevrací)
 6. Workers: Martin=236443, Pavel=236444, Markéta=236445, Jakub=236446
 7. **NIKDY NEHÁDEJ Freelo API** — testuj přes debug endpointy
 
 ### Debug endpointy
 ```
-GET /api/freelo/debug-finished-tasks/{tasklist_id}
-GET /api/freelo/debug-task-state/{task_id}
-GET /api/freelo/debug-comments/{task_id}
-GET /api/freelo/debug-tasklist-raw/{tasklist_id}
+GET /api/freelo/debug-finished-tasks/{tasklist_id}  → testuje různé způsoby načtení hotových
+GET /api/freelo/debug-task-state/{task_id}           → stav konkrétního úkolu
+GET /api/freelo/debug-comments/{task_id}             → surová odpověď komentářů
+GET /api/freelo/debug-tasklist-raw/{tasklist_id}     → stav úkolů v tasklist
 ```
 
 ---
@@ -268,91 +144,110 @@ AI **musí** vracet `===SEKCE===` markery, ne JSON:
 ===EXPECTED_BENEFITS===
 ===ADDITIONAL_NOTES===
 ===SUMMARY===
-===FREELO_STATUS===    ← stav Freelo úkolů (tabulka)
+===FREELO_STATUS===    ← Nová sekce — stav Freelo úkolů (tabulka)
 ===TASKS===            ← Úkoly pro Freelo (parsované zvlášť)
 ```
 
-### Klíčová pravidla
-- Freelo úkoly patří **VÝHRADNĚ** do `===FREELO_STATUS===`
-- `user_message` nesmí obsahovat "Vrat POUZE validni JSON" — konflikt s FORMAT_INSTRUCTIONS
-- Skóre v tabulce se detekuje regexem → `applyScoreBadges()` v JS
+### Klíčová pravidla generování
+- Freelo úkoly patří **VÝHRADNĚ** do `===FREELO_STATUS===`, nikam jinam
+- `user_message` nesmí obsahovat "Vrat POUZE validni JSON" — to je konflikt s FORMAT_INSTRUCTIONS
+- Skóre v tabulce se detekuje regexem a obarví `applyScoreBadges()` v JS
+
+### Nový zápis — Freelo kontext panel
+- Při výběru klienta se načtou Freelo úkoly (`/api/klient/{id}/freelo-kontext`)
+- Zobrazí dokončené od posledního zápisu + aktivní
+- Zaškrtnuté úkoly jdou jako kontext do AI promptu
+- Endpoint: `freelo.py` → `api_klient_freelo_kontext()`
 
 ---
 
-## ✅ Co funguje (ověřeno k 28. 3. 2026)
+## 🐛 Opravené chyby (tato session — 26. 3. 2026)
 
-- ✅ Přihlášení, role, session → redirect na Přehled klientů
-- ✅ Přehled klientů s filtry a skóre (`/prehled`)
-- ✅ Seznam zápisů s filtry (`/dashboard`) — záložka "Zápisy" v menu
+### Kritické bugy
+| Bug | Příčina | Oprava |
+|---|---|---|
+| Nový zápis — prázdná stránka | `{% block content %}` smazán při slučování scriptů | Obnoveno z FINAL8 zálohy |
+| Tlačítka nefungují (edit, PDF) | JS syntax error v `saveDetail()` — apostrof v stringu | Přesun do `detail.js` |
+| Barvičky skóre zmizely | `sanitize_summary` regex `\x01` místo `\1` | Opraveno |
+| Instrukce se nepropíšou | `user_message` obsahoval "Vrat POUZE validni JSON" — konflikt | Odstraněno |
+| Admin Service Unavailable | `u.freelo_email` mimo for loop v Jinja2 | Přesunuto do JS |
+| `table already exists` | `db.create_all(checkfirst=True)` — neexistuje parametr | Odstraněn |
+| Hotové úkoly nenačítají | Špatný endpoint — správný je `/tasklist/{id}/finished-tasks` | Opraveno |
+| format.js bug | Inline JS v `<script src="">` tagu — prohlížeč ignoruje | Oddělen tag |
+| Dvě `onKlientChange` definice | Duplikátní funkce v různých script blocích | Sloučeno |
+
+### JS architektura po opravě
+```
+novy.html: jeden <script> blok v <body> se VŠEMI funkcemi
+detail.html: inline <script> jen s Jinja2 proměnnými + <script src="/static/detail.js">
+detail.js: veškerá logika, čistý JS, Node.js syntax ověřen
+```
+
+---
+
+## ✅ Co funguje (ověřeno)
+
+- ✅ Přihlášení, role, session
+- ✅ Přehled klientů s filtry a skóre
 - ✅ Detail klienta — info, poznámky, projekty, zápisy, nabídky
-- ✅ Freelo panel — aktivní + hotové úkoly
-- ✅ Freelo editace, komentáře, podúkoly
+- ✅ Freelo panel — aktivní + hotové úkoly (správný endpoint)
+- ✅ Freelo editace, komentáře, podúkoly (modal s RTE)
+- ✅ Profil skladu — vždy viditelný
 - ✅ Nový zápis — prefill z API, datum, Freelo kontext panel
 - ✅ Generování zápisů (audit/operativa/obchod)
 - ✅ Detail zápisu — sekce, edit, AI úprava, PDF
+- ✅ FREELO_STATUS sekce v zápisu
 - ✅ Veřejný zápis (print/PDF)
+- ✅ Zpět tlačítko → klient detail
 - ✅ AI Report s Freelo daty + delta skóre
 - ✅ Správa uživatelů — Freelo API klíč per user
-- ✅ Flask-Migrate — automatické migrace při každém deployi
-- ✅ Staging prostředí — vlastní DB, větev staging, ENABLE_SEED=true
-- ✅ Vlastní domény — app.apollopro.io + staging.apollopro.io (SSL pending)
+- ✅ Per-user Freelo credentials (přepíše globální)
+- ✅ /crm → redirect na /prehled
+- ✅ Seed jen při ENABLE_SEED=true
+- ✅ Admin heslo z ADMIN_PASSWORD env var
 
 ---
 
 ## ⏳ Pending / Nedokončeno
 
 ### Vysoká priorita
-- [ ] **Import klientů ze SharePointu** — typ dat neznámý (Excel/CSV?), neimplementováno
-- [ ] **Emailové odesílání zápisů** — MS 365 SMTP (Martin má credentials)
-- [ ] **Ověřit detail.js v produkci** — tlačítka edit/AI v detail zápisu
+- [ ] **Import klientů ze SharePointu** — uživatel to chce, typ dat neznámý (Excel/CSV/složky)
+- [ ] **Emailové odesílání zápisů** — MS 365 SMTP, neimplementováno
+- [ ] **Tlačítka edit/AI v detail.html** — ověřit že oprava detail.js funguje v produkci
 
 ### Střední priorita
-- [ ] **Hotové úkoly v klient detailu** — ověřit v produkci
-- [ ] **Podúkoly** — ověřit v produkci
+- [ ] **Hotové úkoly v klient detailu** — backend opravený, ověřit v produkci
+- [ ] **Podúkoly** — vytváření funguje, ověřit v produkci
 - [ ] **Responsivní CSS** — mobilní zobrazení není optimalizované
-- [ ] **www.apollopro.io** — rozcestník pro budoucí aplikace
 
 ### Nízká priorita / Budoucnost
-- [ ] **RAG / Knowledge base** — nahrávání dokumentů jako znalostní báze per klient
-  - Přístup 1: pgvector embeddings (4–6 dní)
-  - Přístup 2: strukturovaná extrakce do profilu klienta (2–3 dny)
+- [ ] **RAG / Knowledge base** — nahrávání dokumentů (PDF, Word, Excel) jako znalostní báze per klient
+  - Přístup 1: pgvector embeddings (4-6 dní práce)
+  - Přístup 2: strukturovaná extrakce do profilu klienta (2-3 dny)
 - [ ] **Rate limiting** na API endpointech
-- [ ] **Error tracking** (Sentry)
+- [ ] **Error tracking** (Sentry nebo podobné)
 - [ ] **Unit testy**
 - [ ] **Klientský portál** — `/portal` existuje ale není plně otestován
 
 ---
 
-## ⚠️ Známé problémy a gotchas
+## 🔧 Před releasem kolegům — Checklist
 
-### Flask-Migrate gotchas
-- Migrační soubory musí být v Gitu — Railway je potřebuje při deployi
-- `flask db migrate` soubor VYGENERUJE, ale neaplikuje — aplikuje `flask db upgrade`
-- Vždy zkontroluj vygenerovaný soubor ručně před commitem
+```
+Railway Variables:
+  [x] SECRET_KEY nastaveno
+  [x] ADMIN_PASSWORD nastaveno  
+  [x] ANTHROPIC_API_KEY nastaveno
+  [x] FREELO_API_KEY + FREELO_EMAIL + FREELO_PROJECT_ID nastaveny
+  [ ] ENABLE_SEED = NESETTOVAT (nebo false)
 
-### Jinja2 gotchas
-- `u.atribut is defined` nefunguje pro atributy objektů — použij prostě `u.atribut`
-- Jinja2 modaly musí být prázdné — data plní JavaScript
-- `{% for u in users %}` — `u` existuje POUZE uvnitř cyklu
-
-### SQLAlchemy gotchas
-- `db.create_all()` je správné — přeskočí existující tabulky
-- `db.create_all(checkfirst=True)` neexistuje — crash!
-- `ALTER TABLE "user"` — user musí být v uvozovkách (rezervované slovo v PostgreSQL)
-
-### JS gotchas
-- `<script src="...">` s inline obsahem — prohlížeč ignoruje inline kód!
-- `let` na top-level není na `window` (na rozdíl od `var`)
-
-### Freelo gotchas
-- Project ID 582553 (URL) ≠ 501350 (API ID) — vždy 501350!
-- `state=null` = aktivní úkol, `state.id=5` = hotový
-- POST /description ZVLÁŠŤ, prázdný content = 400 error
-
-### DNS / Railway gotchas
-- SSL certifikát trvá 5–15 minut — "není soukromé" = normální, stačí počkat
-- CNAME i TXT záznam musí být oba přidané, jinak Railway doménu neověří
-- Staging má vlastní DB — změny dat na stagingu se NIKDY nepromítnou do produkce
+Po deployi:
+  [ ] Přihlásit se a změnit admin heslo
+  [ ] Vytvořit účty pro kolegy (Správa → Uživatelé)
+  [ ] Každý konzultant nastaví vlastní Freelo email + API klíč
+  [ ] Smazat demo klienty pokud existují
+  [ ] Otestovat generování prvního zápisu
+```
 
 ---
 
@@ -361,31 +256,180 @@ AI **musí** vracet `===SEKCE===` markery, ne JSON:
 ### User
 ```sql
 id, email, name, password_hash, is_admin, is_active, role
-klient_id, freelo_email, freelo_api_key, created_at
+klient_id         -- pro roli "klient"
+freelo_email      -- vlastní Freelo email (přepíše globální)
+freelo_api_key    -- vlastní Freelo API klíč
+created_at
 ```
 
 ### Klient
 ```sql
 id, nazev, slug, kontakt, email, telefon, adresa, sidlo, ic, dic
-poznamka, profil_json, freelo_tasklist_id, logo_url, is_active, created_at
+poznamka          -- volné poznámky
+profil_json       -- AI-generovaný profil skladu (JSON)
+freelo_tasklist_id -- propojení s Freelo
+logo_url, is_active, created_at
 ```
 
 ### Zapis
 ```sql
-id, title, template, input_text, output_json, output_text
-tasks_json, notes_json, interni_prompt, freelo_sent
-public_token, is_public, klient_id, projekt_id, user_id, created_at
+id, title, template (audit/operativa/obchod)
+input_text        -- přepis ze schůzky
+output_json       -- AI výstup jako JSON sekce
+output_text       -- HTML pro zobrazení
+tasks_json        -- úkoly pro Freelo
+notes_json        -- strukturované poznámky z terénu
+interni_prompt    -- interní instrukce pro AI
+freelo_sent       -- bool, odesláno do Freela
+public_token, is_public  -- veřejný odkaz
+klient_id, projekt_id, user_id
+created_at
+```
+
+---
+
+## 🔄 Freelo per-user credentials — jak funguje
+
+```python
+# services/freelo.py
+def freelo_auth(user=None):
+    """Preferuje credentials uživatele před globálními."""
+    if user and user.freelo_email and user.freelo_api_key:
+        return (user.freelo_email, user.freelo_api_key)
+    return (FREELO_EMAIL, FREELO_API_KEY)  # fallback na env vars
+
+def _get_current_user():
+    """Auto-detekce přihlášeného uživatele z Flask session."""
+    from flask import session
+    uid = session.get("user_id")
+    return User.query.get(uid) if uid else None
+```
+
+---
+
+## 📋 API endpointy — přehled
+
+### Freelo (Blueprint: `freelo`)
+```
+GET  /api/klient/{id}/freelo-ukoly           → aktivní + hotové úkoly
+GET  /api/klient/{id}/freelo-kontext         → kontext pro nový zápis (s komentáři)
+GET  /api/klient/{id}/freelo-members         → členové projektu
+GET  /api/freelo/projects                    → seznam projektů s tasklists
+GET  /api/freelo/members/{project_id}        → členové projektu
+POST /api/freelo/create-tasklist             → nový tasklist
+POST /api/klient/{id}/freelo-nastavit        → nastavit tasklist klientovi
+POST /api/klient/{id}/freelo-pridat-ukol     → přidat úkol
+POST /api/klient/{id}/freelo-pridat-podukol  → přidat podúkol
+POST /api/freelo/task/{id}/edit              → editovat úkol
+POST /api/freelo/task/{id}/komentar          → přidat komentář
+GET  /api/freelo/task/{id}/komentare         → načíst komentáře
+GET  /api/freelo/task/{id}/podukoly          → načíst podúkoly
+GET  /api/freelo/task/{id}/detail            → detail úkolu (s popisem)
+POST /api/freelo/task/{id}/stav              → změnit stav (finish/activate)
+POST /api/freelo/task/{id}/smazat            → smazat úkol
+POST /api/freelo/{zapis_id}                  → odeslat úkoly ze zápisu do Freela
+```
+
+### Klienti (Blueprint: `klienti`)
+```
+GET  /klient/{id}                            → detail klienta
+GET  /api/klient/{id}/info                   → základní info pro prefill formulářů
+POST /api/klient/{id}/upravit                → uložit změny
+POST /api/klient/{id}/profil                 → uložit profil skladu
+```
+
+### Zápisy (Blueprint: `zapisy`)
+```
+POST /api/generovat                          → generovat zápis (AI)
+GET  /zapis/{id}                             → detail zápisu
+POST /api/zapis/{id}/sekce                   → uložit sekci
+POST /api/zapis/{id}/ai-sekce               → AI úprava sekce
+POST /api/zapis/{id}/publikovat             → zveřejnit/skrýt
+```
+
+---
+
+## 🎨 Brand Guidelines
+
+```css
+--navy: #173767    /* hlavní barva */
+--cyan: #00AFF0    /* akcent */
+--orange: #FF8D00  /* CTA tlačítka */
+Font: Montserrat (všude)
+Nadpisy: 26px, weight 800
+Tělo: 13-14px, weight 500
+```
+
+---
+
+## ⚠️ Známé problémy a gotchas
+
+### Jinja2 gotchas
+- `u.atribut is defined` nefunguje pro atributy objektů — použij prostě `u.atribut`
+- Jinja2 modaly musí být prázdné — data plní JavaScript přes parametry funkcí
+- `{% for u in users %}` — `u` existuje POUZE uvnitř cyklu
+
+### SQLAlchemy gotchas
+- `db.create_all()` bez argumentů je správné (přeskočí existující tabulky)
+- `db.create_all(checkfirst=True)` neexistuje v Flask-SQLAlchemy — crash!
+- Migrace `ALTER TABLE "user"` — user musí být v uvozovkách (rezervované slovo)
+
+### JS gotchas
+- `<script src="...">` s inline obsahem — prohlížeč ignoruje inline kód!
+- `let` na top-level není na `window` (na rozdíl od `var`)
+- detail.js je externí soubor, novy.html má vše inline v jednom `<script>`
+
+### Freelo gotchas  
+- Project ID 582553 (viditelné v URL) ≠ 501350 (API ID) — vždy použij 501350
+- `state=null` v tasklist odpovědi = aktivní (ne "chybí stav")
+- `state.state="active"` = aktivní, `state.id=5` = hotový
+- Popis: POST /description ZVLÁŠŤ po vytvoření, prázdný content = 400
+
+---
+
+## 📁 Soubory k zachování
+
+```
+CLAUDE.md           ← tento soubor (pravidelně aktualizovat)
+commarec-v2-FINAL9.zip  ← aktuální záloha
+/tmp/test_v2.py     ← testovací script (spustit před každým deploye)
+```
+
+### Test script spouštění
+```bash
+cd /home/claude/v2
+python3 /tmp/test_v2.py
+```
+Musí vrátit: `✅ VŠECHNY TESTY PROŠLY — připraven k deployi!`
+
+---
+
+## 🚀 Postup pro nový deploy
+
+```bash
+# 1. Ověř testy
+cd /home/claude/v2 && python3 /tmp/test_v2.py
+
+# 2. Vytvoř ZIP
+find . -name "*.pyc" -delete
+zip -r ../commarec-v2-FINAL9.zip . --exclude "*/.git/*" ...
+
+# 3. Nahraj na GitHub (uživatel dělá ručně)
+# 4. Railway automaticky deployuje
+# 5. Zkontroluj logy — hledej "Starting gunicorn" bez ERROR
 ```
 
 ---
 
 ## 💡 Next session — Co dělat jako první
 
-1. **Ověřit app.apollopro.io** — SSL certifikát by měl být hotový
-2. **Import klientů ze SharePointu** — zjistit formát dat a implementovat
+Doporučené pořadí:
+
+1. **Ověřit v produkci** — jestli admin funguje, Freelo se načítá, generování funguje
+2. **Import klientů ze SharePointu** — zjistit formát dat (Excel/CSV?) a implementovat
 3. **Emailové odesílání zápisů** — MS 365 SMTP (Martin má credentials)
 4. **RAG / Knowledge base** — až bude základní provoz stabilní
 
 ---
 
-*Aktualizováno: 28. 3. 2026 | Commarec Zápisy v2 | Claude Sonnet 4.6*
+*Dokument generován: 26. 3. 2026 | Commarec Zápisy v2 | Claude Sonnet 4.6*
