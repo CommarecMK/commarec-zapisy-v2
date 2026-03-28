@@ -34,6 +34,9 @@ def create_app():
 
     # ─── Inicializace rozšíření ───────────────────────────────────────────────
     db.init_app(app)
+    from .extensions import migrate as _migrate
+    from . import models as _models  # noqa: zajistí registraci modelů v Alembic
+    _migrate.init_app(app, db)
 
     # ─── Registrace blueprintů ────────────────────────────────────────────────
     from .routes.main    import bp as main_bp
@@ -84,41 +87,9 @@ def _init_db(app):
     from .config import TEMPLATE_SECTIONS
 
     try:
-        db.create_all()  # bezpečné - přeskočí existující tabulky
-
-        # Auto-migrate nové sloupce
-        migrations = [
-            ("klient", "ic",       "ALTER TABLE klient ADD COLUMN IF NOT EXISTS ic VARCHAR(20) DEFAULT ''"),
-            ("klient", "dic",      "ALTER TABLE klient ADD COLUMN IF NOT EXISTS dic VARCHAR(20) DEFAULT ''"),
-            ("klient", "sidlo",    "ALTER TABLE klient ADD COLUMN IF NOT EXISTS sidlo VARCHAR(300) DEFAULT ''"),
-            ("nabidka_polozka", "dph_pct", "ALTER TABLE nabidka_polozka ADD COLUMN IF NOT EXISTS dph_pct NUMERIC(5,2) DEFAULT 0"),
-            ("projekt", "freelo_project_id",  "ALTER TABLE projekt ADD COLUMN IF NOT EXISTS freelo_project_id INTEGER"),
-            ("user", "freelo_email",   "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS freelo_email VARCHAR(120)"),
-            ("user", "freelo_api_key", "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS freelo_api_key VARCHAR(200)"),
-            ("projekt", "freelo_tasklist_id", "ALTER TABLE projekt ADD COLUMN IF NOT EXISTS freelo_tasklist_id INTEGER"),
-            ("zapis", "output_json",    "ALTER TABLE zapis ADD COLUMN output_json TEXT DEFAULT '{}'"),
-            ("zapis", "notes_json",     "ALTER TABLE zapis ADD COLUMN notes_json TEXT DEFAULT '[]'"),
-            ("zapis", "interni_prompt", "ALTER TABLE zapis ADD COLUMN interni_prompt TEXT DEFAULT ''"),
-            ("zapis", "public_token",   "ALTER TABLE zapis ADD COLUMN public_token VARCHAR(40)"),
-            ("zapis", "is_public",      "ALTER TABLE zapis ADD COLUMN is_public BOOLEAN DEFAULT FALSE"),
-            ("zapis", "klient_id",      "ALTER TABLE zapis ADD COLUMN klient_id INTEGER"),
-            ("zapis", "projekt_id",     "ALTER TABLE zapis ADD COLUMN projekt_id INTEGER"),
-            ("user",  "is_active",      "ALTER TABLE user ADD COLUMN is_active BOOLEAN DEFAULT TRUE"),
-            ("user",  "role",           "ALTER TABLE user ADD COLUMN role VARCHAR(40) DEFAULT 'konzultant'"),
-            ("user",  "klient_id",      "ALTER TABLE user ADD COLUMN IF NOT EXISTS klient_id INTEGER REFERENCES klient(id)"),
-            ("klient", "logo_url",      "ALTER TABLE klient ADD COLUMN logo_url VARCHAR(500) DEFAULT ''"),
-            ("klient", "poznamka",      "ALTER TABLE klient ADD COLUMN IF NOT EXISTS poznamka TEXT DEFAULT ''"),
-            ("klient", "freelo_tasklist_id", "ALTER TABLE klient ADD COLUMN IF NOT EXISTS freelo_tasklist_id INTEGER"),
-        ]
-
-        with db.engine.connect() as conn:
-            for table, col, sql in migrations:
-                try:
-                    conn.execute(db.text(sql))
-                    conn.commit()
-                    print(f"Migrated: {table}.{col}")
-                except Exception:
-                    pass
+        # db.create_all() jako záchranná síť pro nové instalace bez migrations/
+        # V produkci a stagingu se schéma spravuje přes: flask db upgrade
+        db.create_all()
 
         # Výchozí admin
         if not User.query.filter_by(email="admin@commarec.cz").first():

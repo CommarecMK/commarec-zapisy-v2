@@ -1,5 +1,5 @@
 # 🗂 Commarec Zápisy v2 — Handoff dokument pro Claude
-*Aktualizováno: 26. 3. 2026 | Verze: FINAL9*
+*Aktualizováno: 28. 3. 2026 | Verze: FINAL10*
 
 ---
 
@@ -11,7 +11,7 @@
 | **GitHub** | https://github.com/CommarecMK/commarec-zapisy-v2 |
 | **Login** | admin@commarec.cz / heslo z `ADMIN_PASSWORD` env var |
 | **Railway** | asia-southeast1-eqsg3a, PostgreSQL perzistentní DB |
-| **Aktuální ZIP** | `commarec-v2-FINAL9.zip` |
+| **Aktuální ZIP** | `commarec-v2-FINAL10.zip` |
 
 ---
 
@@ -208,6 +208,94 @@ detail.js: veškerá logika, čistý JS, Node.js syntax ověřen
 
 ---
 
+
+---
+
+## 🧪 Staging prostředí — nastavení
+
+### Architektura
+```
+GitHub repo
+├── branch: main     → Railway Production  (ostrá DB, ostrá data)
+└── branch: staging  → Railway Staging     (testovací DB, ENABLE_SEED=true)
+```
+
+### Jak vytvořit Staging service na Railway
+1. Otevři Railway projekt → **+ New Service** → **GitHub repo**
+2. Vyber stejný repozitář (`commarec-zapisy-v2`)
+3. Nastav **Root Directory** = `/` (stejné)
+4. V nastavení service → **Settings** → **Branch** = `staging`
+5. Přidej **Environment Variables** (kopie produkčních, plus):
+   ```
+   SECRET_KEY        = (jiný než produkce!)
+   DATABASE_URL      = (Railway auto-přiřadí novou PostgreSQL DB)
+   ANTHROPIC_API_KEY = (stejný jako produkce)
+   FREELO_API_KEY    = (stejný jako produkce, nebo testovací)
+   FREELO_EMAIL      = (stejný jako produkce)
+   FREELO_PROJECT_ID = 501350
+   ADMIN_PASSWORD    = (testovací heslo)
+   ENABLE_SEED       = true   ← POUZE na stagingu!
+   ```
+6. Přidej PostgreSQL databázi ke staging service → Railway automaticky nastaví `DATABASE_URL`
+7. Při prvním deployi `flask db upgrade` vytvoří čisté schéma + seed data se načtou
+
+### Workflow pro nové funkce
+```bash
+# 1. Vytvoř větev ze staging
+git checkout staging
+git checkout -b feature/nova-funkce
+
+# 2. Vyvíjej a testuj lokálně nebo na stagingu
+
+# 3. Přidej migraci pokud měníš DB schéma
+flask db migrate -m "popis zmeny"
+git add migrations/
+git commit -m "add migration: popis zmeny"
+
+# 4. Merge do staging → Railway automaticky deployuje a spustí flask db upgrade
+
+# 5. Po otestování → merge do main → produkce se aktualizuje
+```
+
+### ⚠️ Nikdy neměnit data v produkci přes DB konzoli
+Veškeré změny schématu pouze přes migrace (`flask db migrate` + commit).
+
+---
+
+## 🗃 Flask-Migrate — správa DB schématu
+
+Přidáno v: FINAL10 (28. 3. 2026). Nahrazuje ruční `ALTER TABLE` loop v `_init_db`.
+
+### Příkazy
+```bash
+# Nová migrace po změně models.py
+flask db migrate -m "stručný popis (např. add email_sent to zapis)"
+
+# Aplikovat migrace (spouští se automaticky při deployi)
+flask db upgrade
+
+# POUZE JEDNOU na existující produkci (označí aktuální stav jako "hotovo")
+flask db stamp head
+
+# Zkontrolovat stav migrací
+flask db current
+flask db history
+```
+
+### Co dělat po změně models.py
+1. Lokálně: `flask db migrate -m "popis"` — vygeneruje soubor v `migrations/versions/`
+2. Zkontroluj vygenerovaný soubor (Alembic někdy vynechá věci)
+3. `git add migrations/ && git commit`
+4. Push → Railway automaticky spustí `flask db upgrade` při deployi
+
+### ⚠️ Jednou na produkci — nutný krok po prvním deployi FINAL10
+```bash
+# V Railway konzoli (Shell tab) spusť jednou:
+flask db stamp head
+# → Označí existující schéma jako aktuální, bez jakékoli změny dat
+```
+
+
 ## ⏳ Pending / Nedokončeno
 
 ### Vysoká priorita
@@ -391,7 +479,7 @@ Tělo: 13-14px, weight 500
 
 ```
 CLAUDE.md           ← tento soubor (pravidelně aktualizovat)
-commarec-v2-FINAL9.zip  ← aktuální záloha
+commarec-v2-FINAL10.zip  ← aktuální záloha
 /tmp/test_v2.py     ← testovací script (spustit před každým deploye)
 ```
 
@@ -412,7 +500,7 @@ cd /home/claude/v2 && python3 /tmp/test_v2.py
 
 # 2. Vytvoř ZIP
 find . -name "*.pyc" -delete
-zip -r ../commarec-v2-FINAL9.zip . --exclude "*/.git/*" ...
+zip -r ../commarec-v2-FINAL10.zip . --exclude "*/.git/*" ...
 
 # 3. Nahraj na GitHub (uživatel dělá ručně)
 # 4. Railway automaticky deployuje
