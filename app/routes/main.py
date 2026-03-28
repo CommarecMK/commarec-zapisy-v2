@@ -532,3 +532,14 @@ def crm_prehled():
     from flask import redirect, url_for
     return redirect(url_for("main.prehled"))
 
+
+# ─────────────────────────────────────────────
+# MANUÁL PRO TÝM
+# ─────────────────────────────────────────────
+
+@bp.route("/manual")
+@login_required
+def manual():
+    """Manuál pro tým — návod k použití aplikace."""
+    return render_template("manual.html")
+
